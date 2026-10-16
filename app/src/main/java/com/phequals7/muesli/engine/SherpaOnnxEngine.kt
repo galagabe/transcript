@@ -83,7 +83,7 @@ object SherpaRecognizerHolder {
             loadedModelId = null
         }
 
-        check(models.isDownloaded()) { "${models.model.shortName} model is not downloaded" }
+        check(models.isDownloaded()) { "Le modèle ${models.model.shortName} n’est pas téléchargé." }
 
         val modelConfig = when (models.model.kind) {
             SpeechModelKind.NEMO_TRANSDUCER -> OfflineModelConfig(
@@ -189,7 +189,7 @@ class SherpaOnnxEngine(private val context: Context) : TranscriptionEngine {
         onErr = onError
 
         if (!ModelManager(context).isDownloaded()) {
-            onError("The selected speech model is not downloaded. Download it from Settings.")
+            onError("Le modèle de transcription n’est pas téléchargé. Téléchargez-le dans Réglages.")
             return
         }
 
@@ -200,7 +200,7 @@ class SherpaOnnxEngine(private val context: Context) : TranscriptionEngine {
                 startCapture()
             } catch (t: Throwable) {
                 Log.e(TAG, "Failed to start", t)
-                if (!cancelled.get()) emitError("Could not start on-device engine: ${t.message}")
+                if (!cancelled.get()) emitError("Impossible de démarrer le moteur de transcription : ${t.message}")
             }
         }
     }
@@ -224,7 +224,7 @@ class SherpaOnnxEngine(private val context: Context) : TranscriptionEngine {
                 if (!cancelled.get()) emitFinal(text)
             } catch (t: Throwable) {
                 Log.e(TAG, "Final decode failed", t)
-                if (!cancelled.get()) emitError("Transcription failed: ${t.message}")
+                if (!cancelled.get()) emitError("Échec de la transcription : ${t.message}")
             }
         }
     }
@@ -265,7 +265,7 @@ class SherpaOnnxEngine(private val context: Context) : TranscriptionEngine {
             )
             .setBufferSizeInBytes(maxOf(minBuffer, SAMPLE_RATE)) // ~1s buffer
             .build()
-        check(record.state == AudioRecord.STATE_INITIALIZED) { "AudioRecord failed to initialize" }
+        check(record.state == AudioRecord.STATE_INITIALIZED) { "l’enregistreur audio n’a pas pu s’initialiser" }
         routeManager.resolveDevice(pref)?.let { record.setPreferredDevice(it) }
 
         audioRecord = record

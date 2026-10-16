@@ -1,29 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Full-color Muesli brand mark, vector-traced from the official raster
-     (muesli_app_icon.png): near-black square + 13 rounded blue bars,
-     geometry matched to the source (waveform ≈72% wide × 50% tall).
-     Callers clip to rounded corners; crisp at any size. -->
+<!-- Full-color Clindy mark used inside the app (onboarding, launch screen):
+     Clinitex blue square, white microphone, mint sound waves. Same glyph as
+     the launcher icon. Callers clip to rounded corners; crisp at any size.
+     File name kept until the package rename (lot 5). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
+    android:viewportWidth="120"
+    android:viewportHeight="120">
     <path
-        android:fillColor="#15171B"
-        android:pathData="M0,0h24v24h-24z" />
-    <group android:strokeWidth="0.75">
-        <path android:strokeColor="#6BA3F7" android:strokeLineCap="round" android:pathData="M3.35,10.23 L3.35,13.77" />
-        <path android:strokeColor="#6BA3F7" android:strokeLineCap="round" android:pathData="M4.81,8.6 L4.81,15.4" />
-        <path android:strokeColor="#6BA3F7" android:strokeLineCap="round" android:pathData="M6.27,7.07 L6.27,16.93" />
-        <path android:strokeColor="#6BA3F7" android:strokeLineCap="round" android:pathData="M7.61,6 L7.61,18" />
-        <path android:strokeColor="#6BA3F7" android:strokeLineCap="round" android:pathData="M9.07,6.6 L9.07,17.4" />
-        <path android:strokeColor="#6BA3F7" android:strokeLineCap="round" android:pathData="M10.54,8.47 L10.54,15.53" />
-        <path android:strokeColor="#6BA3F7" android:strokeLineCap="round" android:pathData="M12,10.23 L12,13.77" />
-        <path android:strokeColor="#6BA3F7" android:strokeLineCap="round" android:pathData="M13.46,8.47 L13.46,15.53" />
-        <path android:strokeColor="#6BA3F7" android:strokeLineCap="round" android:pathData="M14.93,6.6 L14.93,17.4" />
-        <path android:strokeColor="#6BA3F7" android:strokeLineCap="round" android:pathData="M16.39,6 L16.39,18" />
-        <path android:strokeColor="#6BA3F7" android:strokeLineCap="round" android:pathData="M17.73,7.07 L17.73,16.93" />
-        <path android:strokeColor="#6BA3F7" android:strokeLineCap="round" android:pathData="M19.18,8.6 L19.18,15.4" />
-        <path android:strokeColor="#6BA3F7" android:strokeLineCap="round" android:pathData="M20.65,10.23 L20.65,13.77" />
-    </group>
+        android:fillColor="#164194"
+        android:pathData="M0,0h120v120h-120z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M49,39 a11,11 0 0,1 22,0 v18 a11,11 0 0,1 -22,0 z" />
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:pathData="M40,58 a20,20 0 0,0 40,0 M60,78 L60,90 M48,92 L72,92" />
+    <path
+        android:strokeColor="#C9E5D8"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:pathData="M28,40 a28,28 0 0,0 0,32 M92,40 a28,28 0 0,1 0,32" />
 </vector>

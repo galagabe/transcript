@@ -1,9 +1,14 @@
 package com.phequals7.muesli.meetings
 
 /**
- * Meeting note templates, ported from muesli-ios MeetingTemplatePreset
- * (MuesliPreferences.swift). Labels, details, and the full summary-prompt
- * instruction blocks are verbatim — keep in sync.
+ * Clinitex meeting note templates (Lot 2). [instructions] is sent as
+ * `templateInstructions` to the n8n summary webhook; the section headings
+ * it lists are the headings Claude writes in the meeting notes.
+ *
+ * Ids stay stable: they are stored in RecordingSession.templateId and
+ * unknown ids (old Muesli templates) fall back to [GENERAL].
+ *
+ * The RDV commercial sections are a proposal pending business validation.
  */
 enum class MeetingTemplate(
     val id: String,
@@ -12,143 +17,67 @@ enum class MeetingTemplate(
     val instructions: String,
 ) {
     GENERAL(
-        "general", "General Meeting", "Balanced notes, decisions, and action items.",
-        """Follow this note template exactly:
+        "general", "Réunion générale", "Synthèse, décisions et actions à mener.",
+        """Suis exactement ce plan de compte rendu :
 
-## Meeting Summary
-A 2-3 sentence overview of what was discussed.
+## Synthèse
+Deux ou trois phrases résumant l'objet et l'issue de la réunion.
 
-## Key Discussion Points
-- Bullet points of the main topics discussed
+## Points clés
+- Les principaux sujets abordés
 
-## Decisions Made
-- Bullet points of any decisions reached
+## Décisions
+- Les décisions prises
 
-## Action Items
-- [ ] Bullet points of tasks assigned or agreed upon, with owners if mentioned
+## Actions à mener
+- [ ] Tâche — responsable et échéance s'ils sont cités
 
-## Notable Quotes
-- Any important or notable statements, if applicable"""
+## Citations marquantes
+- Déclarations importantes, uniquement si pertinent"""
     ),
-    ONE_ON_ONE(
-        "oneOnOne", "1:1", "Feedback, blockers, follow-ups, and commitments.",
-        """Follow this note template exactly:
+    RDV_COMMERCIAL(
+        "rdvCommercial", "RDV commercial", "Besoin du client, prestations, objections et suite à donner.",
+        """Suis exactement ce plan de compte rendu :
 
-## 1:1 Summary
-A concise overview of the conversation and current context.
+## Synthèse du rendez-vous
+Deux ou trois phrases : qui a été rencontré, pour quel site, et l'issue du rendez-vous.
 
-## Wins and Progress
-- Bullet points of progress, positive signals, and completed work
+## Contexte du client
+- Site(s) concerné(s), type de locaux et interlocuteurs présents avec leur rôle
 
-## Blockers and Concerns
-- Bullet points of blockers, risks, or concerns discussed
+## Prestations actuelles
+- Prestataire en place, fréquences de passage, points de satisfaction et d'insatisfaction
 
-## Feedback
-- Bullet points of feedback given or requested
+## Besoins et attentes
+- Ce que le client souhaite obtenir ou changer
 
-## Action Items
-- [ ] Follow-up tasks, owners, and timing if mentioned"""
+## Objections et points de vigilance
+- Freins, inquiétudes ou conditions exprimés par le client
+
+## Éléments pour le chiffrage
+- Surfaces, fréquences, horaires, contraintes d'accès, budget ou délais, uniquement s'ils ont été mentionnés
+
+## Prochaines étapes
+- [ ] Action — responsable et échéance s'ils sont cités"""
     ),
-    STANDUP(
-        "standup", "Standup", "Progress, next work, blockers, and owners.",
-        """Follow this note template exactly:
+    REUNION_INTERNE(
+        "reunionInterne", "Réunion interne", "Points abordés, décisions, actions et points ouverts.",
+        """Suis exactement ce plan de compte rendu :
 
-## Standup Summary
-A concise overview of team status.
+## Synthèse
+Deux ou trois phrases résumant l'objet et l'issue de la réunion.
 
-## Progress
-- What was completed or moved forward
+## Points abordés
+- Les sujets traités, dans l'ordre de la réunion
 
-## Next Up
-- What people plan to work on next
+## Décisions
+- Les décisions prises
 
-## Blockers
-- Blockers, dependencies, or risks
+## Actions à mener
+- [ ] Tâche — responsable et échéance s'ils sont cités
 
-## Action Items
-- [ ] Follow-up tasks with owners if mentioned"""
-    ),
-    INTERVIEW(
-        "interview", "Interview", "Signals, strengths, concerns, and follow-up questions.",
-        """Follow this note template exactly:
-
-## Interview Summary
-A concise overview of the interview discussion.
-
-## Key Signals
-- Evidence, examples, and signals observed
-
-## Strengths
-- Strengths or positive indicators
-
-## Concerns
-- Concerns, gaps, or unclear areas
-
-## Follow-up Questions
-- Questions or topics to revisit"""
-    ),
-    LECTURE(
-        "lecture", "Lecture", "Concepts, examples, questions, and study follow-ups.",
-        """Follow this note template exactly:
-
-## Lecture Summary
-A concise overview of the session.
-
-## Core Concepts
-- Main concepts and definitions
-
-## Examples and Evidence
-- Examples, cases, formulas, or references mentioned
-
-## Questions
-- Questions raised or unclear points
-
-## Follow-ups
-- [ ] Study tasks, readings, or practice items"""
-    ),
-    CUSTOMER_CALL(
-        "customerCall", "Customer Call", "Pain points, requirements, objections, and next steps.",
-        """Follow this note template exactly:
-
-## Customer Call Summary
-A concise overview of the customer conversation.
-
-## Customer Goals
-- Desired outcomes, priorities, and success criteria
-
-## Pain Points
-- Problems, blockers, or frustrations mentioned
-
-## Requirements
-- Feature, workflow, technical, or commercial requirements
-
-## Objections and Risks
-- Concerns, objections, or adoption risks
-
-## Next Steps
-- [ ] Follow-up tasks, owners, and timing if mentioned"""
-    ),
-    PLANNING(
-        "planning", "Planning", "Goals, scope, risks, milestones, and open questions.",
-        """Follow this note template exactly:
-
-## Planning Summary
-A concise overview of the plan discussed.
-
-## Goals
-- Outcomes and priorities
-
-## Scope
-- In-scope work, out-of-scope work, and dependencies
-
-## Risks and Open Questions
-- Risks, unknowns, and decisions still needed
-
-## Milestones
-- Dates, phases, or checkpoints if mentioned
-
-## Action Items
-- [ ] Follow-up tasks with owners if mentioned"""
+## Points ouverts
+- Questions restées sans réponse ou sujets à reprendre"""
     );
 
     companion object {

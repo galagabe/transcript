@@ -32,9 +32,8 @@ data class SpeechModel(
 }
 
 /**
- * Catalog of on-device ASR models, mirroring the muesli-ios model picker
- * (LocalTranscriptionModel). All run through the same sherpa-onnx runtime;
- * they differ in decoder architecture and download size.
+ * Catalog of on-device ASR models. Clinitex keeps only the multilingual
+ * Parakeet v3 (the English-only 110M model cannot transcribe French).
  */
 object SpeechModels {
 
@@ -43,8 +42,8 @@ object SpeechModels {
         id = "parakeet-tdt-0.6b-v3-int8",
         displayName = "Parakeet v3 600M",
         shortName = "Parakeet v3",
-        capabilityLabel = "Multilingual · 25 languages",
-        detail = "Larger multilingual transducer model. Best accuracy and coverage; bigger download.",
+        capabilityLabel = "Multilingue · 25 langues dont le français",
+        detail = "Modèle de reconnaissance vocale multilingue, exécuté entièrement sur le téléphone. Le français impose ce modèle.",
         kind = SpeechModelKind.NEMO_TRANSDUCER,
         files = listOf(
             ModelManager.ModelFile(
@@ -70,30 +69,7 @@ object SpeechModels {
         ),
     )
 
-    /**
-     * iOS parity: Parakeet 110M English (the iOS default). Distributed only as
-     * a tar.bz2 on the sherpa-onnx GitHub release (the HuggingFace mirror has
-     * no per-file downloads), so it is extracted after download.
-     */
-    val PARAKEET_110M = SpeechModel(
-        id = "parakeet-tdt-ctc-110m-en-36000-int8",
-        displayName = "Parakeet 110M",
-        shortName = "Parakeet 110M",
-        capabilityLabel = "English only",
-        detail = "Smaller English-only CTC model. Fastest download and lightest on storage; still punctuation-aware.",
-        kind = SpeechModelKind.NEMO_CTC,
-        files = listOf(
-            ModelManager.ModelFile(
-                "model.tar.bz2",
-                "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet_tdt_ctc_110m-en-36000-int8.tar.bz2",
-                126_000_000L,
-            ),
-        ),
-        packagedAsTarBz2 = true,
-        requiredOutputs = listOf("tokens.txt", "model.int8.onnx"),
-    )
-
-    val all: List<SpeechModel> = listOf(PARAKEET_V3, PARAKEET_110M)
+    val all: List<SpeechModel> = listOf(PARAKEET_V3)
 
     /** Existing installs already have v3 downloaded, so it stays the default. */
     const val DEFAULT_ID = "parakeet-tdt-0.6b-v3-int8"

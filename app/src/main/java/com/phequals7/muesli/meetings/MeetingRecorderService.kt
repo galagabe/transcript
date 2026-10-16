@@ -49,7 +49,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  *   → sequential Parakeet decode per segment → merged live transcript in
  *   [MeetingRecordingController] → Transcript row on stop. When speaker
  *   labels are enabled, the finished WAV is diarized (bundled pyannote +
- *   TitaNet models) and chunks are prefixed with "Speaker N · m:ss".
+ *   TitaNet models) and chunks are prefixed with "Intervenant N · m:ss".
  *
  * If the VAD cannot be created, chunking falls back to fixed 30 s rotation.
  */
@@ -132,7 +132,7 @@ class MeetingRecorderService : Service() {
 
         val selectedModel = SpeechModels.selected(this)
         if (!ModelManager(this, selectedModel).isDownloaded()) {
-            failSession(id, title, templateId, "${selectedModel.shortName} model is not downloaded")
+            failSession(id, title, templateId, "Le modèle ${selectedModel.shortName} n’est pas téléchargé.")
             return
         }
 
@@ -200,7 +200,7 @@ class MeetingRecorderService : Service() {
             capturing.set(true)
         } catch (t: Throwable) {
             Log.e(TAG, "Failed to start capture", t)
-            failSession(id, title, templateId, "Could not start microphone: ${t.message}")
+            failSession(id, title, templateId, "Impossible de démarrer le micro : ${t.message}")
             teardown()
         }
     }
@@ -328,7 +328,7 @@ class MeetingRecorderService : Service() {
                 RecordingSession(
                     id = id,
                     kind = "meeting",
-                    title = title.ifEmpty { "Untitled Meeting" },
+                    title = title.ifEmpty { "Réunion sans titre" },
                     phase = "failed",
                     errorMessage = message,
                     engineIdentifier = SpeechModels.selected(this@MeetingRecorderService).id,
@@ -384,7 +384,7 @@ class MeetingRecorderService : Service() {
             )
             .setBufferSizeInBytes(maxOf(minBuffer, SAMPLE_RATE))
             .build()
-        check(record.state == AudioRecord.STATE_INITIALIZED) { "AudioRecord failed to initialize" }
+        check(record.state == AudioRecord.STATE_INITIALIZED) { "l’enregistreur audio n’a pas pu s’initialiser" }
         routeManager.resolveDevice(pref)?.let { record.setPreferredDevice(it) }
         audioRecord = record
 
@@ -647,9 +647,9 @@ class MeetingRecorderService : Service() {
     private fun createNotificationChannel() {
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "Meeting Recording",
+            "Enregistrement de réunion",
             NotificationManager.IMPORTANCE_LOW
-        ).apply { description = "Shown while Muesli records a meeting" }
+        ).apply { description = "Affichée pendant que Clindy enregistre une réunion" }
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
 
@@ -672,14 +672,14 @@ class MeetingRecorderService : Service() {
 
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("Recording meeting")
-            .setContentText(title.ifEmpty { "Muesli" })
+            .setContentTitle("Enregistrement en cours")
+            .setContentText(title.ifEmpty { "Clindy" })
             .setContentIntent(openApp)
             .setOngoing(true)
             .setWhen(startedAtMs)
             .setUsesChronometer(true)
-            .addAction(0, "Stop", stopIntent)
-            .addAction(0, "Discard", discardIntent)
+            .addAction(0, "Arrêter", stopIntent)
+            .addAction(0, "Abandonner", discardIntent)
             .build()
 
         if (Build.VERSION.SDK_INT >= 34) {

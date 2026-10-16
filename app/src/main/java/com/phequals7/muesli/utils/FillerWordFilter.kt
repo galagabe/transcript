@@ -8,7 +8,10 @@ object FillerWordFilter {
         "er", "err", "ah", "ahh",
         "hmm", "hm", "mm", "mmm",
         "like,",
-        "you know,"
+        "you know,",
+        // French hesitations (Parakeet transcribes them as words). Only pure
+        // fillers: "ben", "bah", "bon" carry meaning and are kept.
+        "euh", "euh,", "euh.", "euuh", "euuh,", "heu", "heu,", "hum", "hum,"
     )
 
     private val fillerPhrases = listOf(

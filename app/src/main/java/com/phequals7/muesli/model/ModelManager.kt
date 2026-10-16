@@ -101,7 +101,7 @@ class ModelManager private constructor(
                     part.delete()
                     existing = 0L
                 } else if (code !in intArrayOf(HttpURLConnection.HTTP_OK, HttpURLConnection.HTTP_PARTIAL)) {
-                    throw RuntimeException("Download of ${file.name} failed: HTTP $code")
+                    throw RuntimeException("téléchargement de ${file.name} impossible (HTTP $code)")
                 }
 
                 val append = existing > 0

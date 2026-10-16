@@ -19,10 +19,10 @@ class AudioInputRouteManager(context: Context) {
 
     /** Mirrors iOS RecordingMicrophonePreference ids ("auto" is the default). */
     enum class MicPreference(val id: String, val label: String) {
-        AUTO("auto", "Automatic"),
-        PHONE("phone", "This Phone"),
+        AUTO("auto", "Automatique"),
+        PHONE("phone", "Ce téléphone"),
         BLUETOOTH("bluetooth", "Bluetooth"),
-        USB("usb", "External (USB)");
+        USB("usb", "Externe (USB)");
 
         companion object {
             fun fromId(id: String?): MicPreference =
@@ -65,12 +65,12 @@ class AudioInputRouteManager(context: Context) {
 
     /** Human label for the route a recording would take right now. */
     fun currentRouteLabel(pref: MicPreference): String = when (pref) {
-        MicPreference.AUTO -> "Automatic"
-        MicPreference.PHONE -> "Phone Microphone"
+        MicPreference.AUTO -> "Automatique"
+        MicPreference.PHONE -> "Micro du téléphone"
         MicPreference.BLUETOOTH ->
-            if (isAvailable(pref)) "Bluetooth Mic" else "Phone Microphone (Bluetooth unavailable)"
+            if (isAvailable(pref)) "Micro Bluetooth" else "Micro du téléphone (Bluetooth indisponible)"
         MicPreference.USB ->
-            if (isAvailable(pref)) "USB Mic" else "Phone Microphone (USB unavailable)"
+            if (isAvailable(pref)) "Micro USB" else "Micro du téléphone (USB indisponible)"
     }
 
     /**

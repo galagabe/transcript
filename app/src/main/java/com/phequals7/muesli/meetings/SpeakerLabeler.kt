@@ -37,10 +37,10 @@ object SpeakerLabeler {
      * unlabeled when first).
      *
      * Example:
-     *   Speaker 1 · 0:04
+     *   Intervenant 1 · 0:04
      *   Let's review the launch plan…
      *
-     *   Speaker 2 · 0:31
+     *   Intervenant 2 · 0:31
      *   Sounds good, two things…
      */
     fun render(chunks: List<TimedText>, segments: List<SpeakerSegment>): String {
@@ -55,7 +55,7 @@ object SpeakerLabeler {
 
             if (speaker != currentSpeaker) {
                 if (!firstBlock) out.append("\n\n")
-                out.append("Speaker ")
+                out.append("Intervenant ")
                     .append((speaker ?: 0) + 1)
                     .append(" · ")
                     .append(formatTime(chunk.startSec))

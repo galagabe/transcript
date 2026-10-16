@@ -43,7 +43,7 @@ import com.phequals7.muesli.theme.MuesliTheme
 import com.phequals7.muesli.ui.components.MuesliElapsedBadge
 import com.phequals7.muesli.ui.components.MuesliInlineWaveform
 import com.phequals7.muesli.ui.components.MuesliWaveformMode
-import com.phequals7.muesli.ui.dashboard.voicenotes.MuesliSurfaceCard
+import com.phequals7.muesli.ui.components.MuesliSurfaceCard
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -85,7 +85,7 @@ fun MeetingsTab(
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
         val title = titleInput.ifBlank {
-            "Meeting ${SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault()).format(Date())}"
+            "Réunion du ${SimpleDateFormat("d MMM 'à' HH:mm", Locale.FRENCH).format(Date())}"
         }
         MeetingRecordingController.start(context, UUID.randomUUID().toString(), title, selectedTemplate.id)
         titleInput = ""
@@ -110,8 +110,8 @@ fun MeetingsTab(
         // ── Header ──────────────────────────────────────────────────────
         item {
             Column {
-                Text("Meetings", color = colors.textPrimary, fontSize = 28.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp)
-                Text("Record, write, review.", color = colors.textSecondary, fontSize = 13.sp)
+                Text("Réunions", color = colors.textPrimary, fontSize = 28.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp)
+                Text("Enregistrer, annoter, relire.", color = colors.textSecondary, fontSize = 13.sp)
             }
         }
 
@@ -147,7 +147,7 @@ fun MeetingsTab(
                                 Icon(Icons.Default.Mic, contentDescription = null, tint = colors.accent)
                             }
                             Text(
-                                "Start a new meeting",
+                                "Nouvelle réunion",
                                 color = colors.accent,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.SemiBold
@@ -157,7 +157,7 @@ fun MeetingsTab(
                         TextField(
                             value = titleInput,
                             onValueChange = { titleInput = it },
-                            placeholder = { Text("Meeting title", color = colors.textTertiary) },
+                            placeholder = { Text("Titre de la réunion", color = colors.textTertiary) },
                             singleLine = true,
                             colors = TextFieldDefaults.colors(
                                 focusedContainerColor = colors.surfacePrimary,
@@ -181,7 +181,7 @@ fun MeetingsTab(
 
                         if (!modelReady) {
                             Text(
-                                "Requires the ${SpeechModels.selected(context).shortName} model — download it from Settings first.",
+                                "Le modèle ${SpeechModels.selected(context).shortName} est nécessaire : téléchargez-le d’abord dans Réglages.",
                                 color = colors.destructive,
                                 fontSize = 11.sp
                             )
@@ -201,7 +201,7 @@ fun MeetingsTab(
                         ) {
                             Icon(Icons.Default.Mic, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(MuesliSpacing.s8))
-                            Text("Start Meeting", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            Text("Démarrer l’enregistrement", fontSize = 15.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -211,8 +211,8 @@ fun MeetingsTab(
         // ── Recent meetings ─────────────────────────────────────────────
         item {
             Column {
-                Text("Recent Meetings", color = colors.textPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.3).sp)
-                Text("${meetings.size} saved", color = colors.textSecondary, fontSize = 12.sp)
+                Text("Réunions récentes", color = colors.textPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.3).sp)
+                Text(if (meetings.size > 1) "${meetings.size} enregistrées" else "${meetings.size} enregistrée", color = colors.textSecondary, fontSize = 12.sp)
             }
         }
 
@@ -220,7 +220,7 @@ fun MeetingsTab(
             TextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = { Text("Search meetings", color = colors.textTertiary) },
+                placeholder = { Text("Rechercher une réunion", color = colors.textTertiary) },
                 leadingIcon = {
                     Icon(Icons.Default.Search, contentDescription = null, tint = colors.textTertiary, modifier = Modifier.size(18.dp))
                 },
@@ -257,13 +257,13 @@ fun MeetingsTab(
                         Icon(Icons.Default.Groups, contentDescription = null, tint = colors.textTertiary, modifier = Modifier.size(36.dp))
                         Spacer(modifier = Modifier.height(MuesliSpacing.s8))
                         Text(
-                            if (meetings.isEmpty()) "No meetings recorded" else "No matches",
+                            if (meetings.isEmpty()) "Aucune réunion enregistrée" else "Aucun résultat",
                             color = colors.textPrimary,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 14.sp
                         )
                         if (meetings.isEmpty()) {
-                            Text("Start a meeting above to capture notes.", color = colors.textSecondary, fontSize = 12.sp)
+                            Text("Démarrez une réunion ci-dessus pour l’enregistrer.", color = colors.textSecondary, fontSize = 12.sp)
                         }
                     }
                 }
@@ -306,7 +306,7 @@ private fun TemplatePicker(
             }
             Icon(
                 Icons.Default.ArrowDropDown,
-                contentDescription = "Choose template",
+                contentDescription = "Choisir le modèle de compte rendu",
                 tint = colors.textSecondary
             )
         }
@@ -359,7 +359,7 @@ private fun ActiveMeetingCard(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        if (MeetingRecordingController.isFinalizing) "Finishing" else "Recording",
+                        if (MeetingRecordingController.isFinalizing) "Finalisation" else "Enregistrement en cours",
                         color = if (MeetingRecordingController.isFinalizing) colors.transcribing else colors.accent,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium
@@ -371,7 +371,7 @@ private fun ActiveMeetingCard(
                 )
             }
 
-            // Waveform in raised container (Voice Notes parity)
+            // Waveform in raised container
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
@@ -392,7 +392,7 @@ private fun ActiveMeetingCard(
                 )
                 Spacer(modifier = Modifier.height(MuesliSpacing.s8))
                 Text(
-                    text = if (MeetingRecordingController.isFinalizing) "Transcribing remaining audio" else "Listening",
+                    text = if (MeetingRecordingController.isFinalizing) "Transcription de l’audio restant" else "À l’écoute",
                     color = colors.textSecondary,
                     fontSize = 12.sp
                 )
@@ -416,7 +416,7 @@ private fun ActiveMeetingCard(
                 ) {
                     Icon(Icons.Default.Close, contentDescription = null, tint = colors.destructive, modifier = Modifier.size(15.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Discard", color = colors.destructive, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Abandonner", color = colors.destructive, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -431,7 +431,7 @@ private fun ActiveMeetingCard(
                     Icon(Icons.Default.Stop, contentDescription = null, tint = Color.White, modifier = Modifier.size(15.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        if (MeetingRecordingController.isFinalizing) "Finishing..." else "Stop Meeting",
+                        if (MeetingRecordingController.isFinalizing) "Finalisation…" else "Arrêter",
                         color = Color.White,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
@@ -450,17 +450,17 @@ private fun MeetingRow(
     val colors = MuesliTheme.colors
 
     val (badgeText, badgeColor) = when (meeting.phase) {
-        "completed" -> "Complete" to colors.syncGreen
-        "recording" -> "Recording" to colors.accent
-        "transcribing" -> "Transcribing" to colors.transcribing
-        "failed" -> "Failed" to colors.destructive
-        "cancelled" -> "Cancelled" to colors.textTertiary
+        "completed" -> "Terminée" to colors.syncGreen
+        "recording" -> "En cours" to colors.accent
+        "transcribing" -> "Transcription" to colors.transcribing
+        "failed" -> "Échec" to colors.destructive
+        "cancelled" -> "Annulée" to colors.textTertiary
         else -> meeting.phase to colors.textSecondary
     }
 
     val duration = if (meeting.startedAt != null && meeting.endedAt != null) {
         val mins = (meeting.endedAt - meeting.startedAt) / 60_000L
-        if (mins >= 1) " · ${mins} min" else " · <1 min"
+        if (mins >= 1) " · ${mins} min" else " · < 1 min"
     } else ""
 
     MuesliSurfaceCard {
@@ -490,7 +490,7 @@ private fun MeetingRow(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    SimpleDateFormat("d MMM yyyy 'at' h:mm a", Locale.getDefault()).format(Date(meeting.createdAt)) + duration,
+                    SimpleDateFormat("d MMM yyyy 'à' HH:mm", Locale.FRENCH).format(Date(meeting.createdAt)) + duration,
                     color = colors.textSecondary,
                     fontSize = 11.sp,
                     maxLines = 1,

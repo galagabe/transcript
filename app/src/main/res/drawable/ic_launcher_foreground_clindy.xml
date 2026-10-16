@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Clindy launcher foreground (adaptive icon, 108dp canvas): white microphone
+     with mint sound waves, drawn on a 120-unit grid and scaled into the 66dp
+     safe zone. Clinitex palette: white + mint #C9E5D8 over blue #164194. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="60"
+        android:pivotY="60"
+        android:scaleX="0.75"
+        android:scaleY="0.75"
+        android:translateX="-6"
+        android:translateY="-6">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M49,39 a11,11 0 0,1 22,0 v18 a11,11 0 0,1 -22,0 z" />
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="5"
+            android:strokeLineCap="round"
+            android:pathData="M40,58 a20,20 0 0,0 40,0" />
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="5"
+            android:strokeLineCap="round"
+            android:pathData="M60,78 L60,90 M48,92 L72,92" />
+        <path
+            android:strokeColor="#C9E5D8"
+            android:strokeWidth="5"
+            android:strokeLineCap="round"
+            android:pathData="M28,40 a28,28 0 0,0 0,32 M92,40 a28,28 0 0,1 0,32" />
+    </group>
+</vector>

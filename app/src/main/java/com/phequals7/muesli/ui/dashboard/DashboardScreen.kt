@@ -29,13 +29,11 @@ import com.phequals7.muesli.theme.MuesliSpacing
 import com.phequals7.muesli.theme.MuesliTheme
 import com.phequals7.muesli.ui.dashboard.meetings.MeetingsTab
 import com.phequals7.muesli.ui.dashboard.settings.SettingsTab
-import com.phequals7.muesli.ui.dashboard.voicenotes.VoiceNotesTab
 import kotlinx.coroutines.launch
 
 enum class DashboardTab(val label: String, val icon: ImageVector) {
-    DICTATIONS("Voice Notes", Icons.Default.GraphicEq),
-    MEETINGS("Meetings", Icons.Default.Groups),
-    SETTINGS("Settings", Icons.Default.Settings)
+    MEETINGS("Réunions", Icons.Default.Groups),
+    SETTINGS("Réglages", Icons.Default.Settings)
 }
 
 @Composable
@@ -46,7 +44,7 @@ fun DashboardScreen(
     val store = remember { SharedStore(context) }
     val colors = MuesliTheme.colors
 
-    var activeTab by remember { mutableStateOf(DashboardTab.DICTATIONS) }
+    var activeTab by remember { mutableStateOf(DashboardTab.MEETINGS) }
 
     Scaffold(
         bottomBar = {
@@ -64,10 +62,6 @@ fun DashboardScreen(
                 .padding(innerPadding)
         ) {
             when (activeTab) {
-                DashboardTab.DICTATIONS -> VoiceNotesTab(
-                    store = store,
-                    onNavigateToSettings = { activeTab = DashboardTab.SETTINGS }
-                )
                 DashboardTab.MEETINGS -> MeetingsTab(
                     store = store,
                     onNavigateToSettings = { activeTab = DashboardTab.SETTINGS }

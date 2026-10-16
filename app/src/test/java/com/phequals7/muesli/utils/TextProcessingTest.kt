@@ -15,6 +15,13 @@ class TextProcessingTest {
     }
 
     @Test
+    fun testFrenchFillerWords() {
+        val rawInput = "Euh donc on passe, euh, à trois passages, heu par semaine."
+        val expectedOutput = "Donc on passe, à trois passages, par semaine."
+        assertEquals(expectedOutput, FillerWordFilter.apply(rawInput))
+    }
+
+    @Test
     fun testFillerWordFilterCapitalization() {
         val rawInput = "um test"
         val expectedOutput = "Test"

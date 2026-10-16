@@ -23,7 +23,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.phequals7.muesli.audio.AudioInputRouteManager
@@ -31,18 +30,15 @@ import com.phequals7.muesli.data.SharedStore
 import com.phequals7.muesli.data.entity.CustomWord
 import com.phequals7.muesli.meetings.MeetingTemplate
 import com.phequals7.muesli.model.ModelManager
-import com.phequals7.muesli.bubble.BubbleService
 import com.phequals7.muesli.model.SpeechModel
 import com.phequals7.muesli.model.SpeechModels
 import com.phequals7.muesli.engine.SherpaRecognizerHolder
-import com.phequals7.muesli.summaries.ChatGptAuthManager
-import com.phequals7.muesli.summaries.MeetingSummaryClient
 import com.phequals7.muesli.theme.AppearanceController
 import com.phequals7.muesli.theme.MuesliAccentTheme
 import com.phequals7.muesli.theme.MuesliCorners
 import com.phequals7.muesli.theme.MuesliSpacing
 import com.phequals7.muesli.theme.MuesliTheme
-import com.phequals7.muesli.ui.dashboard.voicenotes.MuesliSurfaceCard
+import com.phequals7.muesli.ui.components.MuesliSurfaceCard
 import kotlinx.coroutines.launch
 
 /**
@@ -53,28 +49,18 @@ import kotlinx.coroutines.launch
 fun SettingsTab(store: SharedStore) {
     var section by remember { mutableStateOf<SettingsSection?>(null) }
 
-    when (section) {
-        null -> SettingsHub(onOpenSection = { section = it })
-        SettingsSection.VOICE_NOTES -> SettingsScaffold("Voice Notes", onBack = { section = null }) {
-            VoiceNotesSettings(store)
-        }
-        SettingsSection.MEETINGS -> SettingsScaffold("Meetings", onBack = { section = null }) {
-            MeetingsSettings(store)
-        }
-        SettingsSection.DICTIONARY -> SettingsScaffold("Dictionary", onBack = { section = null }) {
-            DictionarySettings(store)
-        }
-        SettingsSection.MODELS -> SettingsScaffold("Models", onBack = { section = null }) {
-            ModelsSettings(store)
-        }
-        SettingsSection.AI_SUMMARIES -> SettingsScaffold("AI Summaries", onBack = { section = null }) {
-            AiSummariesSettings(store)
-        }
-        SettingsSection.APPEARANCE -> SettingsScaffold("Appearance", onBack = { section = null }) {
-            AppearanceSettings()
-        }
-        SettingsSection.ABOUT -> SettingsScaffold("About", onBack = { section = null }) {
-            AboutSettings(store)
+    val current = section
+    if (current == null) {
+        SettingsHub(onOpenSection = { section = it })
+    } else {
+        SettingsScaffold(current.title, onBack = { section = null }) {
+            when (current) {
+                SettingsSection.MEETINGS -> MeetingsSettings(store)
+                SettingsSection.DICTIONARY -> DictionarySettings(store)
+                SettingsSection.MODELS -> ModelsSettings()
+                SettingsSection.APPEARANCE -> AppearanceSettings()
+                SettingsSection.ABOUT -> AboutSettings(store)
+            }
         }
     }
 }
@@ -84,13 +70,11 @@ private enum class SettingsSection(
     val subtitle: String,
     val icon: ImageVector,
 ) {
-    VOICE_NOTES("Voice Notes", "Speech engine, mic readiness, and keyboard setup.", Icons.Default.Keyboard),
-    MEETINGS("Meetings", "Default template and audio retention.", Icons.Default.Groups),
-    DICTIONARY("Dictionary", "Filler word removal, custom phrases, names, and acronyms.", Icons.Default.Book),
-    MODELS("Models", "Choose and download on-device Parakeet models.", Icons.Default.Memory),
-    AI_SUMMARIES("AI Summaries", "Meeting summary providers, auth, and model selection.", Icons.Default.AutoAwesome),
-    APPEARANCE("Appearance", "Light and dark mode, and app accent.", Icons.Default.Palette),
-    ABOUT("About", "Version, profile, and open-source acknowledgements.", Icons.Default.Info),
+    MEETINGS("Réunions", "Modèle de compte rendu, micro et intervenants.", Icons.Default.Groups),
+    DICTIONARY("Dictionnaire", "Mots d’hésitation, termes métier, noms et sigles.", Icons.Default.Book),
+    MODELS("Modèle de transcription", "Téléchargement du modèle Parakeet sur le téléphone.", Icons.Default.Memory),
+    APPEARANCE("Apparence", "Mode clair ou sombre, couleur d’accent.", Icons.Default.Palette),
+    ABOUT("À propos", "Version, profil et mentions open source.", Icons.Default.Info),
 }
 
 // ───────────────────────────── hub ─────────────────────────────
@@ -106,8 +90,8 @@ private fun SettingsHub(onOpenSection: (SettingsSection) -> Unit) {
     ) {
         item {
             Column {
-                Text("Settings", color = colors.textPrimary, fontSize = 28.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp)
-                Text("Voice notes, meetings, local models, and privacy.", color = colors.textSecondary, fontSize = 13.sp)
+                Text("Réglages", color = colors.textPrimary, fontSize = 28.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp)
+                Text("Réunions, modèle local et confidentialité.", color = colors.textSecondary, fontSize = 13.sp)
             }
         }
 
@@ -178,7 +162,7 @@ private fun SettingsScaffold(
                 .padding(horizontal = MuesliSpacing.s8, vertical = MuesliSpacing.s8)
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = colors.textPrimary)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour", tint = colors.textPrimary)
             }
             Text(title, color = colors.textPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.3).sp)
         }
@@ -257,94 +241,23 @@ private fun SettingsCard(content: @Composable () -> Unit) {
     }
 }
 
-// ─────────────────────── Voice Notes ───────────────────────
-
-@Composable
-private fun VoiceNotesSettings(store: SharedStore) {
-    val context = LocalContext.current
-    val colors = MuesliTheme.colors
-    var keepMicReady by remember { mutableStateOf(store.keepMicReady) }
-    var bubbleEnabled by remember { mutableStateOf(store.bubbleEnabled) }
-    var micPreference by remember {
-        mutableStateOf(AudioInputRouteManager.MicPreference.fromId(store.micPreference))
-    }
-    val routeManager = remember { AudioInputRouteManager(context) }
-
-    Column(verticalArrangement = Arrangement.spacedBy(MuesliSpacing.s16)) {
-        SettingsCard {
-            Text("Recording Microphone", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            AudioInputRouteManager.MicPreference.entries.forEach { option ->
-                ChoiceRow(
-                    title = option.label,
-                    subtitle = micPreferenceSubtitle(routeManager, option),
-                    selected = micPreference == option,
-                    onClick = { micPreference = option; store.micPreference = option.id }
-                )
-            }
-        }
-
-        SettingsCard {
-            Text("Keyboard", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            ToggleRow(
-                title = "Keep mic ready",
-                subtitle = "The keyboard prewarms the speech model when it opens — recording still only starts when you tap the mic.",
-                checked = keepMicReady,
-                onCheckedChange = { keepMicReady = it; store.keepMicReady = it }
-            )
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(MuesliCorners.small))
-                    .clickable { context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)) }
-                    .padding(vertical = MuesliSpacing.s8)
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Keyboard setup", color = colors.textPrimary, fontSize = 14.sp)
-                    Text("Enable or switch to the Muesli keyboard.", color = colors.textSecondary, fontSize = 11.sp)
-                }
-                Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = colors.textTertiary)
-            }
-        }
-
-        SettingsCard {
-            Text("Quick Capture", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            ToggleRow(
-                title = "Floating mic bubble",
-                subtitle = "A draggable bubble floats over other apps. Tap it to dictate — the note is saved and copied to your clipboard.",
-                checked = bubbleEnabled && Settings.canDrawOverlays(context),
-                onCheckedChange = { enabled ->
-                    if (enabled && !Settings.canDrawOverlays(context)) {
-                        context.startActivity(
-                            Intent(
-                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                Uri.parse("package:${context.packageName}"),
-                            )
-                        )
-                    } else {
-                        bubbleEnabled = enabled
-                        store.bubbleEnabled = enabled
-                        val intent = Intent(context, BubbleService::class.java)
-                        if (enabled) context.startService(intent) else context.stopService(intent)
-                    }
-                }
-            )
-        }
-    }
-}
-
 // ─────────────────────── Meetings ───────────────────────
 
 @Composable
 private fun MeetingsSettings(store: SharedStore) {
     val colors = MuesliTheme.colors
+    val context = LocalContext.current
     var defaultTemplate by remember { mutableStateOf(MeetingTemplate.fromId(store.defaultMeetingTemplate)) }
+    var micPreference by remember {
+        mutableStateOf(AudioInputRouteManager.MicPreference.fromId(store.micPreference))
+    }
+    val routeManager = remember { AudioInputRouteManager(context) }
     var retainAudio by remember { mutableStateOf(store.retainMeetingAudio) }
     var speakerLabels by remember { mutableStateOf(store.speakerLabelsEnabled) }
 
     Column(verticalArrangement = Arrangement.spacedBy(MuesliSpacing.s16)) {
         SettingsCard {
-            Text("Default Template", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text("Modèle de compte rendu par défaut", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             MeetingTemplate.entries.forEach { template ->
                 ChoiceRow(
                     title = template.label,
@@ -359,16 +272,28 @@ private fun MeetingsSettings(store: SharedStore) {
         }
 
         SettingsCard {
-            Text("Recording", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text("Micro d’enregistrement", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            AudioInputRouteManager.MicPreference.entries.forEach { option ->
+                ChoiceRow(
+                    title = option.label,
+                    subtitle = micPreferenceSubtitle(routeManager, option),
+                    selected = micPreference == option,
+                    onClick = { micPreference = option; store.micPreference = option.id }
+                )
+            }
+        }
+
+        SettingsCard {
+            Text("Enregistrement", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             ToggleRow(
-                title = "Speaker labels",
-                subtitle = "Diarizes the meeting on-device after you stop and groups the transcript by speaker. Adds a short processing step.",
+                title = "Identifier les intervenants",
+                subtitle = "À l’arrêt, sépare les voix sur le téléphone et regroupe la transcription par intervenant. Ajoute une courte étape de traitement.",
                 checked = speakerLabels,
                 onCheckedChange = { speakerLabels = it; store.speakerLabelsEnabled = it }
             )
             ToggleRow(
-                title = "Retain meeting audio",
-                subtitle = "Keeps the WAV file on device for future playback and speaker separation.",
+                title = "Conserver l’audio des réunions",
+                subtitle = "Garde le fichier WAV sur le téléphone pour la réécoute et la séparation des intervenants.",
                 checked = retainAudio,
                 onCheckedChange = { retainAudio = it; store.retainMeetingAudio = it }
             )
@@ -397,16 +322,16 @@ private fun DictionarySettings(store: SharedStore) {
 
     Column(verticalArrangement = Arrangement.spacedBy(MuesliSpacing.s16)) {
         SettingsCard {
-            Text("Text Processing", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text("Traitement du texte", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             ToggleRow(
-                title = "Filter filler words",
-                subtitle = "Removes 'uh', 'um', 'you know', etc.",
+                title = "Supprimer les mots d’hésitation",
+                subtitle = "Retire les hésitations (« euh », « heu », « hum »…).",
                 checked = fillerEnabled,
                 onCheckedChange = { fillerEnabled = it; store.isFillerWordRemovalEnabled = it }
             )
             ToggleRow(
-                title = "Custom dictionary",
-                subtitle = "Replace matched words on the fly.",
+                title = "Dictionnaire personnalisé",
+                subtitle = "Corrige automatiquement les termes reconnus de façon approximative.",
                 checked = customDictEnabled,
                 onCheckedChange = { customDictEnabled = it; store.isCustomDictionaryEnabled = it }
             )
@@ -417,7 +342,7 @@ private fun DictionarySettings(store: SharedStore) {
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Custom Words", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                Text("Mots personnalisés", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.weight(1f))
                 Button(
                     onClick = { showAddDialog = true },
                     colors = ButtonDefaults.buttonColors(containerColor = colors.accent),
@@ -426,13 +351,13 @@ private fun DictionarySettings(store: SharedStore) {
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(15.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Add", fontSize = 12.sp)
+                    Text("Ajouter", fontSize = 12.sp)
                 }
             }
 
             if (customWords.isEmpty()) {
                 Text(
-                    "No custom words yet. Add terms to match fuzzy inputs using Jaro-Winkler similarity.",
+                    "Aucun mot personnalisé pour l’instant. Ajoutez vos termes métier : ils seront corrigés même s’ils sont mal transcrits (similarité Jaro-Winkler).",
                     color = colors.textSecondary,
                     fontSize = 12.sp
                 )
@@ -448,13 +373,13 @@ private fun DictionarySettings(store: SharedStore) {
                                 Text("→ ${word.replacement}", color = colors.accent, fontSize = 12.sp)
                             }
                             Text(
-                                "Threshold: ${"%.2f".format(word.matchingThreshold)}",
+                                "Seuil : ${"%.2f".format(word.matchingThreshold)}",
                                 color = colors.textSecondary,
                                 fontSize = 10.sp
                             )
                         }
                         IconButton(onClick = { scope.launch { store.deleteCustomWordById(word.id) } }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = colors.destructive.copy(alpha = 0.7f))
+                            Icon(Icons.Default.Delete, contentDescription = "Supprimer", tint = colors.destructive.copy(alpha = 0.7f))
                         }
                     }
                 }
@@ -466,13 +391,13 @@ private fun DictionarySettings(store: SharedStore) {
         AlertDialog(
             onDismissRequest = { showAddDialog = false },
             containerColor = colors.backgroundRaised,
-            title = { Text("Add Custom Word", color = colors.textPrimary) },
+            title = { Text("Ajouter un mot personnalisé", color = colors.textPrimary) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    TextField(value = entryWord, onValueChange = { entryWord = it }, label = { Text("Word/Phrase") })
-                    TextField(value = entryReplacement, onValueChange = { entryReplacement = it }, label = { Text("Replacement (Optional)") })
+                    TextField(value = entryWord, onValueChange = { entryWord = it }, label = { Text("Mot ou expression") })
+                    TextField(value = entryReplacement, onValueChange = { entryReplacement = it }, label = { Text("Remplacement (facultatif)") })
                     Column {
-                        Text("Matching Threshold: ${"%.2f".format(entryThreshold)}", color = colors.textSecondary, fontSize = 12.sp)
+                        Text("Seuil de correspondance : ${"%.2f".format(entryThreshold)}", color = colors.textSecondary, fontSize = 12.sp)
                         Slider(value = entryThreshold, onValueChange = { entryThreshold = it }, valueRange = 0.5f..1.0f)
                     }
                 }
@@ -497,10 +422,10 @@ private fun DictionarySettings(store: SharedStore) {
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = colors.accent)
-                ) { Text("Add") }
+                ) { Text("Ajouter") }
             },
             dismissButton = {
-                TextButton(onClick = { showAddDialog = false }) { Text("Cancel", color = colors.textSecondary) }
+                TextButton(onClick = { showAddDialog = false }) { Text("Annuler", color = colors.textSecondary) }
             }
         )
     }
@@ -510,199 +435,31 @@ private fun micPreferenceSubtitle(
     routeManager: AudioInputRouteManager,
     option: AudioInputRouteManager.MicPreference,
 ): String = when (option) {
-    AudioInputRouteManager.MicPreference.AUTO -> "Follows the system default route"
-    AudioInputRouteManager.MicPreference.PHONE -> "Always uses the built-in phone microphone"
+    AudioInputRouteManager.MicPreference.AUTO -> "Suit l’entrée audio par défaut du système"
+    AudioInputRouteManager.MicPreference.PHONE -> "Utilise toujours le micro intégré du téléphone"
     AudioInputRouteManager.MicPreference.BLUETOOTH ->
-        if (routeManager.isAvailable(option)) "Connected — uses the Bluetooth mic (e.g. AirPods)" else "Not connected — falls back to the phone mic"
+        if (routeManager.isAvailable(option)) "Connecté : utilise le micro Bluetooth (casque, écouteurs)" else "Non connecté : repli sur le micro du téléphone"
     AudioInputRouteManager.MicPreference.USB ->
-        if (routeManager.isAvailable(option)) "Connected — uses the external USB microphone" else "Not connected — falls back to the phone mic"
+        if (routeManager.isAvailable(option)) "Connecté : utilise le micro USB externe" else "Non connecté : repli sur le micro du téléphone"
 }
 
 // ─────────────────────── Models ───────────────────────
 
 @Composable
-private fun ModelsSettings(store: SharedStore) {
+private fun ModelsSettings() {
     val colors = MuesliTheme.colors
-    var selectedId by remember { mutableStateOf(SpeechModels.byId(store.selectedModelId).id) }
 
     Column(verticalArrangement = Arrangement.spacedBy(MuesliSpacing.s16)) {
-        SpeechModels.all.forEach { model ->
-            SpeechModelCard(
-                model = model,
-                selected = model.id == selectedId,
-                onSelect = {
-                    selectedId = model.id
-                    store.selectedModelId = model.id
-                    SherpaRecognizerHolder.reset()
-                },
-            )
-        }
+        // Single-model catalog (Parakeet v3): information + download/delete, no picker.
+        SpeechModelCard(model = SpeechModels.PARAKEET_V3)
         SettingsCard {
-            Text("About on-device models", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text("Transcription sur le téléphone", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             Text(
-                "All models run fully on-device via sherpa-onnx — audio never leaves this phone. The selected model is used for voice notes, the keyboard, and meetings.",
+                "La transcription s’exécute entièrement sur le téléphone grâce à sherpa-onnx : l’audio ne quitte jamais l’appareil. Seule la transcription texte est envoyée pour générer le compte rendu.",
                 color = colors.textSecondary,
                 fontSize = 12.sp,
                 lineHeight = 17.sp
             )
-        }
-    }
-}
-
-// ─────────────────────── AI Summaries ───────────────────────
-
-@Composable
-private fun AiSummariesSettings(store: SharedStore) {
-    val context = LocalContext.current
-    val colors = MuesliTheme.colors
-    val scope = rememberCoroutineScope()
-    val authManager = remember { ChatGptAuthManager(context.applicationContext) }
-
-    var summariesEnabled by remember { mutableStateOf(store.summariesEnabled) }
-    var backend by remember { mutableStateOf(store.summaryBackend) }
-    var chatGptModel by remember { mutableStateOf(store.chatGptModel) }
-    var openRouterModel by remember { mutableStateOf(store.openRouterModel) }
-    var apiKeyInput by remember { mutableStateOf(store.openRouterApiKey) }
-    var isSignedIn by remember { mutableStateOf(authManager.isAuthenticated) }
-    var signInInProgress by remember { mutableStateOf(false) }
-    var statusMessage by remember { mutableStateOf<String?>(null) }
-
-    Column(verticalArrangement = Arrangement.spacedBy(MuesliSpacing.s16)) {
-        SettingsCard {
-            ToggleRow(
-                title = "Meeting Summaries",
-                subtitle = "Structured notes after local transcription. Transcript text is sent to the selected provider only when this is on.",
-                checked = summariesEnabled,
-                onCheckedChange = {
-                    summariesEnabled = it
-                    store.summariesEnabled = it
-                }
-            )
-        }
-
-        SettingsCard {
-            Text("Summary Backend", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            ChoiceRow(
-                title = "ChatGPT",
-                subtitle = "Sign in with your ChatGPT account (primary)",
-                selected = backend == "chatgpt",
-                onClick = { backend = "chatgpt"; store.summaryBackend = "chatgpt" }
-            )
-            ChoiceRow(
-                title = "OpenRouter",
-                subtitle = "Bring your own API key",
-                selected = backend == "openrouter",
-                onClick = { backend = "openrouter"; store.summaryBackend = "openrouter" }
-            )
-        }
-
-        if (backend == "chatgpt") {
-            SettingsCard {
-                Text("ChatGPT Account", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(if (isSignedIn) colors.syncGreen else colors.textTertiary)
-                    )
-                    Spacer(modifier = Modifier.width(MuesliSpacing.s8))
-                    Text(
-                        if (isSignedIn) "Signed in" else "Not signed in",
-                        color = if (isSignedIn) colors.syncGreen else colors.textSecondary,
-                        fontSize = 13.sp,
-                        modifier = Modifier.weight(1f)
-                    )
-                    if (signInInProgress) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = colors.accent)
-                    }
-                }
-
-                if (!isSignedIn) {
-                    Button(
-                        onClick = {
-                            signInInProgress = true
-                            statusMessage = null
-                            scope.launch {
-                                val error = authManager.signIn { intent -> context.startActivity(intent) }
-                                signInInProgress = false
-                                if (error == null) {
-                                    isSignedIn = true
-                                    statusMessage = null
-                                } else {
-                                    statusMessage = error
-                                }
-                            }
-                        },
-                        enabled = !signInInProgress,
-                        colors = ButtonDefaults.buttonColors(containerColor = colors.accent),
-                        shape = RoundedCornerShape(MuesliCorners.medium),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Sign in with ChatGPT", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                    Text(
-                        "Opens auth.openai.com in your browser. Times out after 5 minutes. Tokens stay on this device.",
-                        color = colors.textSecondary,
-                        fontSize = 11.sp
-                    )
-                } else {
-                    TextButton(onClick = {
-                        authManager.signOut()
-                        isSignedIn = false
-                    }) {
-                        Text("Sign Out", color = colors.destructive)
-                    }
-                }
-
-                statusMessage?.let {
-                    Text(it, color = colors.destructive, fontSize = 11.sp)
-                }
-            }
-
-            SettingsCard {
-                Text("Summary Model", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                MeetingSummaryClient.CHATGPT_MODEL_PRESETS.forEach { preset ->
-                    ChoiceRow(
-                        title = preset,
-                        subtitle = if (preset == "gpt-5.5") "Default" else "Faster, cheaper",
-                        selected = chatGptModel == preset,
-                        onClick = { chatGptModel = preset; store.chatGptModel = preset }
-                    )
-                }
-            }
-        } else {
-            SettingsCard {
-                Text("OpenRouter API Key", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                OutlinedTextField(
-                    value = apiKeyInput,
-                    onValueChange = {
-                        apiKeyInput = it
-                        store.openRouterApiKey = it.trim()
-                    },
-                    placeholder = { Text("sk-or-...", color = colors.textTertiary) },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Text(
-                    if (store.openRouterApiKey.isNotBlank()) "Key saved on this device." else "Get a key at openrouter.ai/keys",
-                    color = colors.textSecondary,
-                    fontSize = 11.sp
-                )
-            }
-
-            SettingsCard {
-                Text("Summary Model", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                MeetingSummaryClient.OPENROUTER_MODEL_PRESETS.forEach { preset ->
-                    ChoiceRow(
-                        title = preset.substringAfter('/').substringBefore(':'),
-                        subtitle = preset,
-                        selected = openRouterModel == preset,
-                        onClick = { openRouterModel = preset; store.openRouterModel = preset }
-                    )
-                }
-            }
         }
     }
 }
@@ -716,14 +473,14 @@ private fun AppearanceSettings() {
 
     Column(verticalArrangement = Arrangement.spacedBy(MuesliSpacing.s16)) {
         SettingsCard {
-            Text("Theme", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            listOf("system" to "System", "light" to "Light", "dark" to "Dark").forEach { (mode, label) ->
+            Text("Thème", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            listOf("system" to "Système", "light" to "Clair", "dark" to "Sombre").forEach { (mode, label) ->
                 ChoiceRow(
                     title = label,
                     subtitle = when (mode) {
-                        "system" -> "Follow the phone's dark mode setting"
-                        "light" -> "Always use the light appearance"
-                        else -> "Always use the dark appearance"
+                        "system" -> "Suit le réglage de mode sombre du téléphone"
+                        "light" -> "Toujours utiliser l’apparence claire"
+                        else -> "Toujours utiliser l’apparence sombre"
                     },
                     selected = AppearanceController.appearanceMode == mode,
                     onClick = { AppearanceController.setAppearanceMode(context, mode) }
@@ -732,7 +489,7 @@ private fun AppearanceSettings() {
         }
 
         SettingsCard {
-            Text("Accent", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text("Couleur d’accent", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             MuesliAccentTheme.entries.forEach { theme ->
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -775,40 +532,40 @@ private fun AboutSettings(store: SharedStore) {
 
     Column(verticalArrangement = Arrangement.spacedBy(MuesliSpacing.s16)) {
         SettingsCard {
-            Text("Profile", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text("Profil", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             TextField(
                 value = profileName,
                 onValueChange = {
                     profileName = it
                     store.userProfileName = it
                 },
-                label = { Text("Your name") },
+                label = { Text("Votre nom") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
         }
 
         SettingsCard {
-            Text("Muesli for Android", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text("Clindy", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             Row(modifier = Modifier.fillMaxWidth()) {
                 Text("Version", color = colors.textSecondary, fontSize = 13.sp, modifier = Modifier.weight(1f))
                 val info = context.packageManager.getPackageInfo(context.packageName, 0)
                 Text("${info.versionName} (${info.longVersionCode})", color = colors.textPrimary, fontSize = 13.sp)
             }
             Row(modifier = Modifier.fillMaxWidth()) {
-                Text("Speech runtime", color = colors.textSecondary, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                Text("Moteur de reconnaissance", color = colors.textSecondary, fontSize = 13.sp, modifier = Modifier.weight(1f))
                 Text("sherpa-onnx 1.13.4", color = colors.textPrimary, fontSize = 13.sp)
             }
             Row(modifier = Modifier.fillMaxWidth()) {
-                Text("Model", color = colors.textSecondary, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                Text("Modèle", color = colors.textSecondary, fontSize = 13.sp, modifier = Modifier.weight(1f))
                 Text(SpeechModels.selected(context).displayName, color = colors.textPrimary, fontSize = 13.sp)
             }
         }
 
         SettingsCard {
-            Text("Acknowledgements", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text("Mentions open source", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             Text(
-                "sherpa-onnx (k2-fsa, Apache-2.0) · ONNX Runtime (Microsoft, MIT) · Parakeet models (NVIDIA NeMo) · Silero VAD. Companion to Muesli for iOS and macOS.",
+                "Basé sur Muesli pour Android (licence MIT, © auteurs de Muesli). sherpa-onnx (k2-fsa, Apache-2.0) · ONNX Runtime (Microsoft, MIT) · modèles Parakeet (NVIDIA NeMo) · Silero VAD.",
                 color = colors.textSecondary,
                 fontSize = 12.sp,
                 lineHeight = 17.sp
@@ -826,8 +583,6 @@ private fun AboutSettings(store: SharedStore) {
 @Composable
 internal fun SpeechModelCard(
     model: SpeechModel,
-    selected: Boolean,
-    onSelect: () -> Unit,
 ) {
     val colors = MuesliTheme.colors
     val context = LocalContext.current
@@ -855,26 +610,14 @@ internal fun SpeechModelCard(
                         .size(36.dp)
                         .clip(RoundedCornerShape(MuesliCorners.small))
                         .background(
-                            when {
-                                selected -> colors.accentSubtle
-                                isDownloaded -> colors.syncGreenSubtle
-                                else -> colors.brandBlueSubtle
-                            }
+                            if (isDownloaded) colors.syncGreenSubtle else colors.brandBlueSubtle
                         ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = when {
-                            selected -> Icons.Default.CheckCircle
-                            isDownloaded -> Icons.Default.CheckCircle
-                            else -> Icons.Default.CloudDownload
-                        },
+                        imageVector = if (isDownloaded) Icons.Default.CheckCircle else Icons.Default.CloudDownload,
                         contentDescription = null,
-                        tint = when {
-                            selected -> colors.accent
-                            isDownloaded -> colors.syncGreen
-                            else -> colors.accent
-                        }
+                        tint = if (isDownloaded) colors.syncGreen else colors.accent
                     )
                 }
                 Column(modifier = Modifier.weight(1f)) {
@@ -882,13 +625,13 @@ internal fun SpeechModelCard(
                     Text(model.capabilityLabel, color = colors.accent, fontSize = 10.sp, fontWeight = FontWeight.Medium)
                     Text(
                         text = when {
-                            isDownloading && progress?.extracting == true -> "Extracting ${progress!!.currentFile}…"
+                            isDownloading && progress?.extracting == true -> "Extraction de ${progress!!.currentFile}…"
                             isDownloading && progress != null ->
-                                "${(progress!!.fraction * 100).toInt()}% · ${modelManager.formatBytes(progress!!.totalBytesDone)} of ${modelManager.formatBytes(progress!!.totalBytes)}"
-                            isDownloaded -> "Downloaded · ${modelManager.formatBytes(modelManager.downloadedBytes())} on disk"
+                                "${(progress!!.fraction * 100).toInt()} % · ${modelManager.formatBytes(progress!!.totalBytesDone)} sur ${modelManager.formatBytes(progress!!.totalBytes)}"
+                            isDownloaded -> "Téléchargé · ${modelManager.formatBytes(modelManager.downloadedBytes())} sur le téléphone"
                             modelManager.downloadedBytes() > 0 ->
-                                "Partially downloaded · ${modelManager.formatBytes(modelManager.downloadedBytes())} / ${modelManager.formatBytes(model.totalSizeBytes)}"
-                            else -> "Not downloaded · ${modelManager.formatBytes(model.totalSizeBytes)} required"
+                                "Téléchargement partiel · ${modelManager.formatBytes(modelManager.downloadedBytes())} / ${modelManager.formatBytes(model.totalSizeBytes)}"
+                            else -> "Non téléchargé · ${modelManager.formatBytes(model.totalSizeBytes)} nécessaires"
                         },
                         color = colors.textSecondary,
                         fontSize = 10.sp
@@ -919,7 +662,7 @@ internal fun SpeechModelCard(
                         isDownloading = false
                         progress = null
                     }) {
-                        Text("Cancel", color = colors.textSecondary)
+                        Text("Annuler", color = colors.textSecondary)
                     }
                 } else if (!isDownloaded) {
                     Button(
@@ -934,7 +677,7 @@ internal fun SpeechModelCard(
                                 } catch (e: kotlinx.coroutines.CancellationException) {
                                     throw e
                                 } catch (t: Throwable) {
-                                    statusMessage = "Download failed: ${t.message}"
+                                    statusMessage = "Échec du téléchargement : ${t.message}"
                                 } finally {
                                     isDownloading = false
                                 }
@@ -944,28 +687,19 @@ internal fun SpeechModelCard(
                         shape = RoundedCornerShape(MuesliCorners.medium)
                     ) {
                         Text(
-                            if (modelManager.downloadedBytes() > 0) "Resume Download" else "Download",
+                            if (modelManager.downloadedBytes() > 0) "Reprendre le téléchargement" else "Télécharger",
                             fontSize = 13.sp
                         )
                     }
                 } else {
-                    if (!selected) {
-                        Button(
-                            onClick = onSelect,
-                            colors = ButtonDefaults.buttonColors(containerColor = colors.accent),
-                            shape = RoundedCornerShape(MuesliCorners.medium)
-                        ) {
-                            Text("Use This Model", fontSize = 13.sp)
-                        }
-                    } else {
-                        Text("Active", color = colors.accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(horizontal = MuesliSpacing.s8, vertical = MuesliSpacing.s8))
-                    }
+                    Text("Actif", color = colors.accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = MuesliSpacing.s8, vertical = MuesliSpacing.s8))
                     TextButton(onClick = {
                         modelManager.deleteModel()
+                        SherpaRecognizerHolder.reset()
                         isDownloaded = false
                     }) {
-                        Text("Delete", color = colors.destructive)
+                        Text("Supprimer", color = colors.destructive)
                     }
                 }
             }

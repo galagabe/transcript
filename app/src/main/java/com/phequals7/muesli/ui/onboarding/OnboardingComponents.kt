@@ -25,44 +25,12 @@ import com.phequals7.muesli.theme.MuesliCorners
 import com.phequals7.muesli.theme.MuesliSpacing
 import com.phequals7.muesli.theme.MuesliTheme
 
-/** What the user wants Muesli for — tailors the step list (iOS OnboardingUseCase). */
-enum class OnboardingUseCase(val id: String, val label: String, val detail: String) {
-    VOICE_NOTES("voice_notes", "Voice Notes", "Dictate and keep searchable notes"),
-    COPY("copy", "Transcribe & Copy", "Speech straight to your clipboard"),
-    KEYBOARD("keyboard", "Keyboard", "Voice typing in any app"),
-    MEETINGS("meetings", "Meetings", "Record and summarize meetings"),
-    EVERYTHING("everything", "Everything", "The full Muesli"),
-    ;
-
-    val showsKeyboardStep: Boolean get() = this != MEETINGS
-    val showsTestStep: Boolean get() = this != MEETINGS
-    val showsSummaryStep: Boolean get() = this == MEETINGS || this == EVERYTHING
-
-    companion object {
-        fun fromId(id: String?): OnboardingUseCase = entries.firstOrNull { it.id == id } ?: EVERYTHING
-    }
-}
-
-/** Ordered steps for a use case (iOS OnboardingStep.orderedSteps parity). */
+/** Ordered onboarding steps: welcome → permissions → model download → done. */
 enum class OnboardingStep(val title: String) {
-    PROFILE("Profile"),
-    MICROPHONE("Microphone"),
-    KEYBOARD("Keyboard"),
-    MODEL("Speech Model"),
-    TEST("Try It"),
-    SUMMARY("AI Summaries"),
-    ;
-
-    companion object {
-        fun forUseCase(useCase: OnboardingUseCase): List<OnboardingStep> = buildList {
-            add(PROFILE)
-            add(MICROPHONE)
-            if (useCase.showsKeyboardStep) add(KEYBOARD)
-            add(MODEL)
-            if (useCase.showsTestStep) add(TEST)
-            if (useCase.showsSummaryStep) add(SUMMARY)
-        }
-    }
+    WELCOME("Bienvenue"),
+    PERMISSIONS("Autorisations"),
+    MODEL("Modèle de transcription"),
+    DONE("C’est prêt"),
 }
 
 /** Shared page chrome: progress capsule, title, subtitle, content, footer. */
@@ -103,7 +71,7 @@ internal fun OnboardingPage(
                 trackColor = colors.surfacePrimary,
             )
             Text(
-                "${stepIndex + 1} of $stepCount",
+                "${stepIndex + 1} sur $stepCount",
                 color = colors.textTertiary,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
@@ -158,7 +126,7 @@ internal fun OnboardingPage(
         }
         if (onBack != null) {
             TextButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
-                Text("Back", color = colors.textTertiary, fontSize = 13.sp)
+                Text("Retour", color = colors.textTertiary, fontSize = 13.sp)
             }
         }
     }
@@ -174,7 +142,7 @@ internal fun OnboardingBrandHeader() {
     ) {
         Image(
             painter = painterResource(id = R.drawable.ic_muesli_logo),
-            contentDescription = "Muesli logo",
+            contentDescription = "Logo de l’application",
             contentScale = ContentScale.Crop,
             modifier = Modifier
                 .size(64.dp)
@@ -182,14 +150,14 @@ internal fun OnboardingBrandHeader() {
         )
         Spacer(modifier = Modifier.height(MuesliSpacing.s8))
         Text(
-            "muesli",
+            "Clindy",
             color = colors.textPrimary,
             fontSize = 26.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = (-0.5).sp,
         )
         Text(
-            "Premium voice dictation, local & private.",
+            "Comptes rendus de réunion, transcrits sur votre téléphone.",
             color = colors.textSecondary,
             fontSize = 13.sp,
         )
@@ -212,7 +180,7 @@ internal fun OnboardingCard(content: @Composable ColumnScope.() -> Unit) {
     )
 }
 
-/** Selectable option row (use case / model picker). */
+/** Selectable option row. */
 @Composable
 internal fun OnboardingChoiceRow(
     title: String,

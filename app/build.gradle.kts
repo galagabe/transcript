@@ -115,7 +115,7 @@ dependencies {
   implementation(libs.room.ktx)
   ksp(libs.room.compiler)
 
-  // Networking (AI summaries: OpenRouter + ChatGPT WHAM SSE)
+  // Networking (Clinitex summaries via the n8n webhook, model downloads)
   implementation(libs.okhttp)
   implementation(libs.kotlinx.serialization.json)
 

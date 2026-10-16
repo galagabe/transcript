@@ -1,49 +1,38 @@
 package com.phequals7.muesli.ui.onboarding
 
-import android.content.Context
-import android.content.Intent
-import android.provider.Settings
-import android.view.inputmethod.InputMethodManager
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.phequals7.muesli.data.SharedStore
-import com.phequals7.muesli.data.entity.DictationResult
-import com.phequals7.muesli.engine.SherpaOnnxEngine
 import com.phequals7.muesli.model.ModelManager
-import com.phequals7.muesli.model.SpeechModel
 import com.phequals7.muesli.model.SpeechModels
-import com.phequals7.muesli.summaries.ChatGptAuthManager
 import com.phequals7.muesli.theme.MuesliCorners
 import com.phequals7.muesli.theme.MuesliSpacing
 import com.phequals7.muesli.theme.MuesliTheme
-import com.phequals7.muesli.ui.components.MuesliInlineWaveform
-import com.phequals7.muesli.ui.components.MuesliWaveformMode
-import com.phequals7.muesli.utils.CustomWordMatcher
-import com.phequals7.muesli.utils.FillerWordFilter
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * iOS-style multi-step onboarding (OnboardingView parity): Profile →
- * Microphone → Keyboard → Speech Model → Try It → AI Summaries, tailored by
- * the use case picked on the first page.
+ * Multi-step onboarding: Welcome (optional name) → Permissions (microphone,
+ * notifications) → Speech model download (Parakeet v3) → Done.
  */
 @Composable
 fun OnboardingScreen(
@@ -53,16 +42,14 @@ fun OnboardingScreen(
     val context = LocalContext.current
     val store = remember { SharedStore(context) }
 
-    var useCase by remember { mutableStateOf(OnboardingUseCase.EVERYTHING) }
-    val steps = remember(useCase) { OnboardingStep.forUseCase(useCase) }
+    val steps = OnboardingStep.entries
     var stepIndex by remember { mutableIntStateOf(0) }
     val step = steps[stepIndex]
 
-    var profileName by remember { mutableStateOf("") }
+    var profileName by remember { mutableStateOf(store.userProfileName) }
 
     fun finish() {
         store.userProfileName = profileName.trim()
-        store.onboardingUseCase = useCase.id
         store.isOnboardingCompleted = true
         onFinished()
     }
@@ -72,56 +59,48 @@ fun OnboardingScreen(
 
     Box(modifier = modifier) {
         when (step) {
-            OnboardingStep.PROFILE -> ProfileStep(
+            OnboardingStep.WELCOME -> WelcomeStep(
                 stepIndex = stepIndex, stepCount = steps.size, onBack = onBack,
                 name = profileName, onNameChange = { profileName = it },
-                useCase = useCase, onUseCaseChange = { useCase = it },
                 onNext = onNext,
             )
-            OnboardingStep.MICROPHONE -> MicrophoneStep(
-                stepIndex = stepIndex, stepCount = steps.size, onBack = onBack, onNext = onNext,
-            )
-            OnboardingStep.KEYBOARD -> KeyboardStep(
+            OnboardingStep.PERMISSIONS -> PermissionsStep(
                 stepIndex = stepIndex, stepCount = steps.size, onBack = onBack, onNext = onNext,
             )
             OnboardingStep.MODEL -> ModelStep(
-                store = store, stepIndex = stepIndex, stepCount = steps.size, onBack = onBack, onNext = onNext,
+                stepIndex = stepIndex, stepCount = steps.size, onBack = onBack, onNext = onNext,
             )
-            OnboardingStep.TEST -> TestDictationStep(
-                store = store, stepIndex = stepIndex, stepCount = steps.size, onBack = onBack, onNext = onNext,
-            )
-            OnboardingStep.SUMMARY -> SummaryStep(
-                store = store, stepIndex = stepIndex, stepCount = steps.size, onBack = onBack, onNext = onNext,
+            OnboardingStep.DONE -> DoneStep(
+                stepIndex = stepIndex, stepCount = steps.size, onBack = onBack, onNext = onNext,
             )
         }
     }
 }
 
-// ── 1. Profile ──────────────────────────────────────────────────────────
+// ── 1. Welcome ──────────────────────────────────────────────────────────
 
 @Composable
-private fun ProfileStep(
+private fun WelcomeStep(
     stepIndex: Int, stepCount: Int, onBack: (() -> Unit)?,
     name: String, onNameChange: (String) -> Unit,
-    useCase: OnboardingUseCase, onUseCaseChange: (OnboardingUseCase) -> Unit,
     onNext: () -> Unit,
 ) {
     val colors = MuesliTheme.colors
     OnboardingPage(
-        step = OnboardingStep.PROFILE, stepIndex = stepIndex, stepCount = stepCount,
-        subtitle = "What should Muesli call you, and what are you here for?",
+        step = OnboardingStep.WELCOME, stepIndex = stepIndex, stepCount = stepCount,
+        subtitle = "Avec Clindy, enregistrez vos rendez-vous et réunions : la transcription se fait sur le téléphone, le compte rendu est généré dès que vous avez du réseau.",
         onBack = onBack,
-        primaryLabel = "Continue",
-        primaryEnabled = name.isNotBlank(),
+        primaryLabel = "Continuer",
+        primaryEnabled = true,
         onPrimary = onNext,
     ) {
         OnboardingBrandHeader()
         OnboardingCard {
-            Text("Your name", color = colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Text("Votre prénom (facultatif)", color = colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             TextField(
                 value = name,
                 onValueChange = onNameChange,
-                placeholder = { Text("e.g. Pranav", color = colors.textTertiary) },
+                placeholder = { Text("Ex. : Camille", color = colors.textTertiary) },
                 singleLine = true,
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = colors.surfacePrimary,
@@ -136,197 +115,139 @@ private fun ProfileStep(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
-        OnboardingCard {
-            Text("I want Muesli for…", color = colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            OnboardingUseCase.entries.forEach { option ->
-                OnboardingChoiceRow(
-                    title = option.label,
-                    subtitle = option.detail,
-                    selected = option == useCase,
-                    onClick = { onUseCaseChange(option) },
+    }
+}
+
+// ── 2. Permissions ──────────────────────────────────────────────────────
+
+@Composable
+private fun PermissionsStep(
+    stepIndex: Int, stepCount: Int, onBack: (() -> Unit)?, onNext: () -> Unit,
+) {
+    val context = LocalContext.current
+    fun isGranted(permission: String): Boolean =
+        context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
+
+    // Notifications need a runtime permission only from Android 13.
+    val needsNotificationPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+
+    var micGranted by remember { mutableStateOf(isGranted(Manifest.permission.RECORD_AUDIO)) }
+    var notificationsGranted by remember {
+        mutableStateOf(!needsNotificationPermission || isGranted(Manifest.permission.POST_NOTIFICATIONS))
+    }
+    val micLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { micGranted = it }
+    val notificationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { notificationsGranted = it }
+
+    OnboardingPage(
+        step = OnboardingStep.PERMISSIONS, stepIndex = stepIndex, stepCount = stepCount,
+        subtitle = "Clindy a besoin du micro pour enregistrer. La transcription se fait sur le téléphone : l’audio ne quitte jamais l’appareil.",
+        onBack = onBack,
+        primaryLabel = "Continuer",
+        primaryEnabled = micGranted,
+        onPrimary = onNext,
+    ) {
+        PermissionCard(
+            icon = Icons.Default.Mic,
+            title = "Accès au micro",
+            status = if (micGranted) "Autorisé" else "Obligatoire pour enregistrer les réunions",
+            granted = micGranted,
+            onGrant = { micLauncher.launch(Manifest.permission.RECORD_AUDIO) },
+        )
+        if (needsNotificationPermission) {
+            PermissionCard(
+                icon = Icons.Default.Notifications,
+                title = "Notifications",
+                status = if (notificationsGranted) "Autorisées" else "Recommandées : suivi et arrêt de l’enregistrement en cours",
+                granted = notificationsGranted,
+                onGrant = { notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun PermissionCard(
+    icon: ImageVector,
+    title: String,
+    status: String,
+    granted: Boolean,
+    onGrant: () -> Unit,
+) {
+    val colors = MuesliTheme.colors
+    OnboardingCard {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(MuesliSpacing.s12),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            OnboardingStatusTile(done = granted, icon = icon)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, color = colors.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    status,
+                    color = if (granted) colors.syncGreen else colors.textSecondary,
+                    fontSize = 11.sp,
                 )
             }
-        }
-    }
-}
-
-// ── 2. Microphone ───────────────────────────────────────────────────────
-
-@Composable
-private fun MicrophoneStep(
-    stepIndex: Int, stepCount: Int, onBack: (() -> Unit)?, onNext: () -> Unit,
-) {
-    val context = LocalContext.current
-    val colors = MuesliTheme.colors
-    var granted by remember {
-        mutableStateOf(
-            context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) ==
-                android.content.pm.PackageManager.PERMISSION_GRANTED
-        )
-    }
-    val launcher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted = it }
-
-    OnboardingPage(
-        step = OnboardingStep.MICROPHONE, stepIndex = stepIndex, stepCount = stepCount,
-        subtitle = "Muesli transcribes on this phone, so it needs the microphone. Audio never leaves the device for transcription.",
-        onBack = onBack,
-        primaryLabel = "Continue",
-        primaryEnabled = granted,
-        onPrimary = onNext,
-    ) {
-        OnboardingCard {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(MuesliSpacing.s12),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                OnboardingStatusTile(done = granted, icon = Icons.Default.Mic)
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Microphone access", color = colors.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        if (granted) "Granted" else "Required for dictation and meetings",
-                        color = if (granted) colors.syncGreen else colors.textSecondary,
-                        fontSize = 11.sp,
-                    )
-                }
-                if (!granted) {
-                    Button(
-                        onClick = { launcher.launch(android.Manifest.permission.RECORD_AUDIO) },
-                        colors = ButtonDefaults.buttonColors(containerColor = colors.accent),
-                        shape = RoundedCornerShape(MuesliCorners.medium),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                    ) {
-                        Text("Grant", fontSize = 12.sp)
-                    }
+            if (!granted) {
+                Button(
+                    onClick = onGrant,
+                    colors = ButtonDefaults.buttonColors(containerColor = colors.accent),
+                    shape = RoundedCornerShape(MuesliCorners.medium),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                ) {
+                    Text("Autoriser", fontSize = 12.sp)
                 }
             }
         }
     }
 }
 
-// ── 3. Keyboard ─────────────────────────────────────────────────────────
-
-@Composable
-private fun KeyboardStep(
-    stepIndex: Int, stepCount: Int, onBack: (() -> Unit)?, onNext: () -> Unit,
-) {
-    val context = LocalContext.current
-    val colors = MuesliTheme.colors
-
-    fun isEnabled(): Boolean {
-        val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        return imm.enabledInputMethodList.any { it.packageName == context.packageName }
-    }
-
-    var enabled by remember { mutableStateOf(isEnabled()) }
-    LaunchedEffect(Unit) {
-        while (!enabled) {
-            delay(1_500)
-            enabled = isEnabled()
-        }
-    }
-
-    OnboardingPage(
-        step = OnboardingStep.KEYBOARD, stepIndex = stepIndex, stepCount = stepCount,
-        subtitle = "The Muesli keyboard lets you dictate into any text field, in any app. Enable it once in system settings.",
-        onBack = onBack,
-        primaryLabel = "Continue",
-        primaryEnabled = enabled,
-        onPrimary = onNext,
-        skipLabel = "Skip for now",
-        onSkip = onNext,
-    ) {
-        OnboardingCard {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(MuesliSpacing.s12),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                OnboardingStatusTile(done = enabled, icon = Icons.Default.Keyboard)
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Muesli Dictation Keyboard", color = colors.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        if (enabled) "Enabled" else "Settings → Keyboards → Muesli",
-                        color = if (enabled) colors.syncGreen else colors.textSecondary,
-                        fontSize = 11.sp,
-                    )
-                }
-                if (!enabled) {
-                    Button(
-                        onClick = { context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)) },
-                        colors = ButtonDefaults.buttonColors(containerColor = colors.accent),
-                        shape = RoundedCornerShape(MuesliCorners.medium),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                    ) {
-                        Text("Setup", fontSize = 12.sp)
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ── 4. Speech model ─────────────────────────────────────────────────────
+// ── 3. Speech model ─────────────────────────────────────────────────────
 
 @Composable
 private fun ModelStep(
-    store: SharedStore,
     stepIndex: Int, stepCount: Int, onBack: (() -> Unit)?, onNext: () -> Unit,
 ) {
     val context = LocalContext.current
     val colors = MuesliTheme.colors
     val scope = rememberCoroutineScope()
 
-    // Fresh installs (no stored selection, nothing downloaded) preselect
-    // the 110M — it runs well on low-end chips, as does iOS's default.
-    // Existing installs keep whatever they already have.
-    var selected by remember {
-        mutableStateOf(
-            if (store.selectedModelId.isBlank() &&
-                SpeechModels.all.none { ModelManager(context.applicationContext, it).isDownloaded() }
-            ) SpeechModels.PARAKEET_110M
-            else SpeechModels.byId(store.selectedModelId)
-        )
-    }
-    val manager = remember(selected.id) { ModelManager(context.applicationContext, selected) }
-    var downloaded by remember(selected.id) { mutableStateOf(manager.isDownloaded()) }
-    var downloading by remember(selected.id) { mutableStateOf(false) }
-    var progress by remember(selected.id) { mutableStateOf<ModelManager.DownloadProgress?>(null) }
-    var error by remember(selected.id) { mutableStateOf<String?>(null) }
-    var downloadJob by remember(selected.id) { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    // Single-model catalog: Parakeet v3 (multilingual, required for French).
+    val model = SpeechModels.PARAKEET_V3
+    val manager = remember { ModelManager(context.applicationContext, model) }
+    var downloaded by remember { mutableStateOf(manager.isDownloaded()) }
+    var downloading by remember { mutableStateOf(false) }
+    var progress by remember { mutableStateOf<ModelManager.DownloadProgress?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var downloadJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
 
     OnboardingPage(
         step = OnboardingStep.MODEL, stepIndex = stepIndex, stepCount = stepCount,
-        subtitle = "Pick the on-device model that transcribes your voice. The recommended one runs well on any phone; the larger model is more accurate but needs a fast chip. Downloads once, runs fully offline.",
+        subtitle = "Le modèle de reconnaissance vocale fonctionne sans réseau, directement sur le téléphone. Il se télécharge une seule fois (environ ${manager.formatBytes(model.totalSizeBytes)}) : privilégiez le Wi-Fi.",
         onBack = onBack,
-        primaryLabel = "Continue",
+        primaryLabel = "Continuer",
         primaryEnabled = downloaded,
         onPrimary = onNext,
     ) {
         OnboardingCard {
-            SpeechModels.all.forEach { model: SpeechModel ->
-                OnboardingChoiceRow(
-                    title = if (model == SpeechModels.PARAKEET_110M) "${model.displayName} · recommended" else model.displayName,
-                    subtitle = "${model.capabilityLabel} · ${manager.formatBytes(model.totalSizeBytes)}",
-                    selected = model.id == selected.id,
-                    onClick = {
-                        selected = model
-                        store.selectedModelId = model.id
-                    },
-                )
-            }
+            Text(model.displayName, color = colors.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Text(model.capabilityLabel, color = colors.accent, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+            Text(model.detail, color = colors.textSecondary, fontSize = 11.sp, lineHeight = 15.sp)
         }
 
         OnboardingCard {
             Text(
                 when {
-                    downloaded -> "${selected.shortName} is ready"
-                    downloading && progress?.extracting == true -> "Extracting…"
+                    downloaded -> "Le modèle est prêt"
+                    downloading && progress?.extracting == true -> "Extraction…"
                     downloading && progress != null ->
-                        "${(progress!!.fraction * 100).toInt()}% · ${manager.formatBytes(progress!!.totalBytesDone)} of ${manager.formatBytes(progress!!.totalBytes)}"
-                    else -> "${selected.shortName} needs a one-time download"
+                        "${(progress!!.fraction * 100).toInt()} % · ${manager.formatBytes(progress!!.totalBytesDone)} sur ${manager.formatBytes(progress!!.totalBytes)}"
+                    else -> "Téléchargement unique nécessaire"
                 },
                 color = if (downloaded) colors.syncGreen else colors.textPrimary,
                 fontSize = 13.sp,
@@ -351,7 +272,7 @@ private fun ModelStep(
                         downloading = false
                         progress = null
                     }) {
-                        Text("Cancel download", color = colors.textSecondary)
+                        Text("Annuler le téléchargement", color = colors.textSecondary)
                     }
                 } else {
                     Button(
@@ -365,7 +286,7 @@ private fun ModelStep(
                                 } catch (e: kotlinx.coroutines.CancellationException) {
                                     throw e
                                 } catch (t: Throwable) {
-                                    error = "Download failed: ${t.message}"
+                                    error = "Échec du téléchargement : ${t.message}"
                                 } finally {
                                     downloading = false
                                 }
@@ -376,7 +297,7 @@ private fun ModelStep(
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text(
-                            if (manager.downloadedBytes() > 0) "Resume download" else "Download ${selected.shortName}",
+                            if (manager.downloadedBytes() > 0) "Reprendre le téléchargement" else "Télécharger le modèle",
                             fontSize = 14.sp,
                         )
                     }
@@ -386,229 +307,52 @@ private fun ModelStep(
     }
 }
 
-// ── 5. Try it ───────────────────────────────────────────────────────────
+// ── 4. Done ─────────────────────────────────────────────────────────────
 
 @Composable
-private fun TestDictationStep(
-    store: SharedStore,
+private fun DoneStep(
     stepIndex: Int, stepCount: Int, onBack: (() -> Unit)?, onNext: () -> Unit,
 ) {
-    val context = LocalContext.current
-    val colors = MuesliTheme.colors
-    val scope = rememberCoroutineScope()
-    val engine = remember { SherpaOnnxEngine(context.applicationContext) }
-
-    var recording by remember { mutableStateOf(false) }
-    var transcribing by remember { mutableStateOf(false) }
-    var level by remember { mutableFloatStateOf(0f) }
-    var transcript by remember { mutableStateOf("") }
-    var errorText by remember { mutableStateOf<String?>(null) }
-
-    DisposableEffect(Unit) {
-        onDispose { engine.cancel() }
-    }
-
     OnboardingPage(
-        step = OnboardingStep.TEST, stepIndex = stepIndex, stepCount = stepCount,
-        subtitle = "Say something — watch it become text, entirely on this phone.",
+        step = OnboardingStep.DONE, stepIndex = stepIndex, stepCount = stepCount,
+        subtitle = "Vous pouvez enregistrer votre première réunion.",
         onBack = onBack,
-        primaryLabel = "Looks good",
+        primaryLabel = "Commencer",
         primaryEnabled = true,
         onPrimary = onNext,
-        skipLabel = "Skip",
-        onSkip = onNext,
     ) {
-        OnboardingCard {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = MuesliSpacing.s8),
-            ) {
-                MuesliInlineWaveform(
-                    mode = when {
-                        transcribing -> MuesliWaveformMode.Waiting
-                        else -> MuesliWaveformMode.Level
-                    },
-                    color = if (transcribing) colors.transcribing else colors.brandBlue,
-                    // Idle shows a flat static line (level 0) — the shimmer
-                    // made it look like recording had already started.
-                    level = if (recording) level else 0f,
-                    barCount = 32,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
-                )
-            }
-            if (transcript.isNotBlank()) {
-                Text(transcript, color = colors.textPrimary, fontSize = 14.sp, lineHeight = 20.sp)
-            }
-            errorText?.let { Text(it, color = colors.destructive, fontSize = 11.sp) }
-            Button(
-                onClick = {
-                    if (recording) {
-                        recording = false
-                        transcribing = true
-                        engine.stopListening()
-                    } else {
-                        transcript = ""
-                        errorText = null
-                        engine.setAmplitudeListener { level = it }
-                        engine.startListening(
-                            onPartialResult = { },
-                            onFinalResult = { text ->
-                                transcribing = false
-                                if (text.isBlank()) {
-                                    errorText = "No speech detected — try again."
-                                } else {
-                                    scope.launch {
-                                        var processed = text
-                                        if (store.isFillerWordRemovalEnabled) {
-                                            processed = FillerWordFilter.apply(processed)
-                                        }
-                                        if (store.isCustomDictionaryEnabled) {
-                                            processed = CustomWordMatcher.apply(processed, store.getCustomWords())
-                                        }
-                                        transcript = processed
-                                        store.insertDictationResult(
-                                            DictationResult(
-                                                text = processed,
-                                                engineIdentifier = SpeechModels.selected(context).id,
-                                            )
-                                        )
-                                    }
-                                }
-                            },
-                            onError = { err ->
-                                transcribing = false
-                                errorText = err
-                            },
-                        )
-                        recording = true
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (recording) colors.destructive else colors.accent,
-                ),
-                shape = RoundedCornerShape(MuesliCorners.medium),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Icon(
-                    if (recording) Icons.Default.Stop else Icons.Default.Mic,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                )
-                Spacer(modifier = Modifier.width(MuesliSpacing.s8))
-                Text(
-                    when {
-                        recording -> "Stop"
-                        transcribing -> "Transcribing…"
-                        else -> "Start talking"
-                    },
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-        }
-        if (transcript.isNotBlank()) {
-            Text(
-                "Saved as your first voice note — it will be waiting in Recents.",
-                color = colors.syncGreen,
-                fontSize = 12.sp,
-            )
-        }
+        DoneRow(
+            icon = Icons.Default.Mic,
+            title = "Enregistrez",
+            detail = "Informez les participants, puis lancez l’enregistrement depuis l’onglet Réunions.",
+        )
+        DoneRow(
+            icon = Icons.Default.CloudDownload,
+            title = "Transcription locale",
+            detail = "Le texte et les intervenants sont produits sur le téléphone, même sans réseau.",
+        )
+        DoneRow(
+            icon = Icons.Default.AutoAwesome,
+            title = "Compte rendu automatique",
+            detail = "La synthèse est générée dès que le téléphone retrouve du réseau.",
+        )
     }
 }
 
-// ── 6. AI summaries ─────────────────────────────────────────────────────
-
 @Composable
-private fun SummaryStep(
-    store: SharedStore,
-    stepIndex: Int, stepCount: Int, onBack: (() -> Unit)?, onNext: () -> Unit,
-) {
-    val context = LocalContext.current
+private fun DoneRow(icon: ImageVector, title: String, detail: String) {
     val colors = MuesliTheme.colors
-    val scope = rememberCoroutineScope()
-    val authManager = remember { ChatGptAuthManager(context.applicationContext) }
-
-    var signedIn by remember { mutableStateOf(authManager.isAuthenticated) }
-    var signInInProgress by remember { mutableStateOf(false) }
-    var apiKey by remember { mutableStateOf(store.openRouterApiKey) }
-    var statusMessage by remember { mutableStateOf<String?>(null) }
-
-    OnboardingPage(
-        step = OnboardingStep.SUMMARY, stepIndex = stepIndex, stepCount = stepCount,
-        subtitle = "Optionally connect a provider to turn meeting transcripts into structured notes. You can do this later in Settings.",
-        onBack = onBack,
-        primaryLabel = if (signedIn || apiKey.isNotBlank()) "Finish" else "Finish without summaries",
-        primaryEnabled = !signInInProgress,
-        onPrimary = {
-            store.openRouterApiKey = apiKey.trim()
-            store.summariesEnabled = signedIn || apiKey.isNotBlank()
-            onNext()
-        },
-    ) {
-        OnboardingCard {
-            Text("ChatGPT (recommended)", color = colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(10.dp)
-                        .clip(CircleShape)
-                        .background(if (signedIn) colors.syncGreen else colors.textTertiary),
-                )
-                Spacer(modifier = Modifier.width(MuesliSpacing.s8))
-                Text(
-                    if (signedIn) "Signed in" else "Not signed in",
-                    color = if (signedIn) colors.syncGreen else colors.textSecondary,
-                    fontSize = 13.sp,
-                    modifier = Modifier.weight(1f),
-                )
-                if (signInInProgress) {
-                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = colors.accent)
-                }
-            }
-            if (!signedIn) {
-                Button(
-                    onClick = {
-                        signInInProgress = true
-                        statusMessage = null
-                        scope.launch {
-                            val error = authManager.signIn { intent -> context.startActivity(intent) }
-                            signInInProgress = false
-                            if (error == null) signedIn = true else statusMessage = error
-                        }
-                    },
-                    enabled = !signInInProgress,
-                    colors = ButtonDefaults.buttonColors(containerColor = colors.accent),
-                    shape = RoundedCornerShape(MuesliCorners.medium),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Sign in with ChatGPT", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                }
+    OnboardingCard {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(MuesliSpacing.s12),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            OnboardingStatusTile(done = false, icon = icon)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, color = colors.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text(detail, color = colors.textSecondary, fontSize = 11.sp, lineHeight = 15.sp)
             }
         }
-        OnboardingCard {
-            Text("Or bring an OpenRouter key", color = colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            TextField(
-                value = apiKey,
-                onValueChange = { apiKey = it },
-                placeholder = { Text("sk-or-…", color = colors.textTertiary) },
-                singleLine = true,
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = colors.surfacePrimary,
-                    unfocusedContainerColor = colors.surfacePrimary,
-                    focusedTextColor = colors.textPrimary,
-                    unfocusedTextColor = colors.textPrimary,
-                    cursorColor = colors.accent,
-                    focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                    unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                ),
-                shape = RoundedCornerShape(MuesliCorners.medium),
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-        statusMessage?.let { Text(it, color = colors.destructive, fontSize = 11.sp) }
     }
 }

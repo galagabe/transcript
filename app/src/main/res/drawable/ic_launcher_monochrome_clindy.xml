@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Clindy themed-icon layer (Android 13+): same glyph as the foreground in a
+     single color; the launcher tints it. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="60"
+        android:pivotY="60"
+        android:scaleX="0.75"
+        android:scaleY="0.75"
+        android:translateX="-6"
+        android:translateY="-6">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M49,39 a11,11 0 0,1 22,0 v18 a11,11 0 0,1 -22,0 z" />
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="5"
+            android:strokeLineCap="round"
+            android:pathData="M40,58 a20,20 0 0,0 40,0 M60,78 L60,90 M48,92 L72,92 M28,40 a28,28 0 0,0 0,32 M92,40 a28,28 0 0,1 0,32" />
+    </group>
+</vector>

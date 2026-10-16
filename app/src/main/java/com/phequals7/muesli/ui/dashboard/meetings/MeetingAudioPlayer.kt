@@ -18,7 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.phequals7.muesli.theme.MuesliSpacing
 import com.phequals7.muesli.theme.MuesliTheme
-import com.phequals7.muesli.ui.dashboard.voicenotes.MuesliSurfaceCard
+import com.phequals7.muesli.ui.components.MuesliSurfaceCard
 import kotlinx.coroutines.delay
 import java.io.File
 import java.util.Locale
@@ -128,7 +128,7 @@ fun MeetingAudioPlayer(audioFile: File, modifier: Modifier = Modifier) {
                 IconButton(onClick = { togglePlayPause() }) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = if (isPlaying) "Pause" else "Play",
+                        contentDescription = if (isPlaying) "Pause" else "Lecture",
                         tint = Color.White
                     )
                 }
@@ -196,7 +196,7 @@ private fun AudioUnavailableRow(modifier: Modifier = Modifier) {
                 modifier = Modifier.size(16.dp)
             )
             Text(
-                "Audio unavailable",
+                "Audio indisponible",
                 color = colors.textSecondary,
                 fontSize = 13.sp
             )

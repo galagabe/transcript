@@ -20,24 +20,16 @@ class SharedStore(private val context: Context) {
 
     companion object {
         private const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
-        private const val KEY_ONBOARDING_USE_CASE = "onboarding_use_case"
         private const val KEY_ENGINE_TYPE = "engine_type" // legacy; always "sherpa" now
         private const val KEY_FILLER_WORD_REMOVAL = "filler_word_removal"
         private const val KEY_CUSTOM_DICTIONARY = "custom_dictionary"
         private const val KEY_USER_PROFILE_NAME = "user_profile_name"
-        private const val KEY_KEEP_MIC_READY = "keep_mic_ready"
         private const val KEY_APPEARANCE_MODE = "appearance_mode" // "system", "light", "dark"
         private const val KEY_ACCENT_THEME = "accent_theme" // "blue", "green", "slate"
         private const val KEY_DEFAULT_MEETING_TEMPLATE = "default_meeting_template"
         private const val KEY_RETAIN_MEETING_AUDIO = "retain_meeting_audio"
-        private const val KEY_SUMMARIES_ENABLED = "summaries_enabled"
-        private const val KEY_SUMMARY_BACKEND = "summary_backend" // "chatgpt" (primary) or "openrouter"
-        private const val KEY_CHATGPT_MODEL = "chatgpt_model"
-        private const val KEY_OPENROUTER_MODEL = "openrouter_model"
-        private const val KEY_OPENROUTER_API_KEY = "openrouter_api_key"
         private const val KEY_SELECTED_MODEL_ID = "selected_model_id"
         private const val KEY_SPEAKER_LABELS = "speaker_labels"
-        private const val KEY_BUBBLE_ENABLED = "bubble_enabled"
         private const val KEY_MIC_PREFERENCE = "mic_preference" // "auto", "phone", "bluetooth", "usb"
     }
 
@@ -45,12 +37,6 @@ class SharedStore(private val context: Context) {
     var isOnboardingCompleted: Boolean
         get() = prefs.getBoolean(KEY_ONBOARDING_COMPLETED, false)
         set(value) = prefs.edit().putBoolean(KEY_ONBOARDING_COMPLETED, value).apply()
-
-    /** Use case picked in onboarding: "voice_notes", "copy", "keyboard",
-     * "meetings", or "everything" (drives which steps are shown). */
-    var onboardingUseCase: String
-        get() = prefs.getString(KEY_ONBOARDING_USE_CASE, "everything") ?: "everything"
-        set(value) = prefs.edit().putString(KEY_ONBOARDING_USE_CASE, value).apply()
 
     var engineType: String
         // Only the on-device sherpa engine exists now (the "system" and
@@ -65,14 +51,6 @@ class SharedStore(private val context: Context) {
     var isCustomDictionaryEnabled: Boolean
         get() = prefs.getBoolean(KEY_CUSTOM_DICTIONARY, true)
         set(value) = prefs.edit().putBoolean(KEY_CUSTOM_DICTIONARY, value).apply()
-
-    /**
-     * When enabled, the Muesli keyboard starts dictation as soon as it is
-     * shown — the Android counterpart of the iOS "Keep mic ready" session mode.
-     */
-    var keepMicReady: Boolean
-        get() = prefs.getBoolean(KEY_KEEP_MIC_READY, false)
-        set(value) = prefs.edit().putBoolean(KEY_KEEP_MIC_READY, value).apply()
 
     /** Appearance: "system" (default), "light", or "dark". */
     var appearanceMode: String
@@ -94,28 +72,6 @@ class SharedStore(private val context: Context) {
         get() = prefs.getBoolean(KEY_RETAIN_MEETING_AUDIO, true)
         set(value) = prefs.edit().putBoolean(KEY_RETAIN_MEETING_AUDIO, value).apply()
 
-    /** AI meeting summaries master toggle (default off, like iOS). */
-    var summariesEnabled: Boolean
-        get() = prefs.getBoolean(KEY_SUMMARIES_ENABLED, false)
-        set(value) = prefs.edit().putBoolean(KEY_SUMMARIES_ENABLED, value).apply()
-
-    /** Summary backend: "chatgpt" (primary, WHAM) or "openrouter" (BYOK). */
-    var summaryBackend: String
-        get() = prefs.getString(KEY_SUMMARY_BACKEND, "chatgpt") ?: "chatgpt"
-        set(value) = prefs.edit().putString(KEY_SUMMARY_BACKEND, value).apply()
-
-    var chatGptModel: String
-        get() = prefs.getString(KEY_CHATGPT_MODEL, "gpt-5.5") ?: "gpt-5.5"
-        set(value) = prefs.edit().putString(KEY_CHATGPT_MODEL, value).apply()
-
-    var openRouterModel: String
-        get() = prefs.getString(KEY_OPENROUTER_MODEL, "stepfun/step-3.5-flash:free") ?: "stepfun/step-3.5-flash:free"
-        set(value) = prefs.edit().putString(KEY_OPENROUTER_MODEL, value).apply()
-
-    var openRouterApiKey: String
-        get() = prefs.getString(KEY_OPENROUTER_API_KEY, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_OPENROUTER_API_KEY, value).apply()
-
     var userProfileName: String
         get() = prefs.getString(KEY_USER_PROFILE_NAME, "") ?: ""
         set(value) = prefs.edit().putString(KEY_USER_PROFILE_NAME, value).apply()
@@ -130,11 +86,6 @@ class SharedStore(private val context: Context) {
     var speakerLabelsEnabled: Boolean
         get() = prefs.getBoolean(KEY_SPEAKER_LABELS, true)
         set(value) = prefs.edit().putBoolean(KEY_SPEAKER_LABELS, value).apply()
-
-    /** Floating quick-capture bubble over other apps (Android-exclusive). */
-    var bubbleEnabled: Boolean
-        get() = prefs.getBoolean(KEY_BUBBLE_ENABLED, false)
-        set(value) = prefs.edit().putBoolean(KEY_BUBBLE_ENABLED, value).apply()
 
     /** Recording microphone route: "auto" (default), "phone", "bluetooth", or "usb"
      * (AudioInputRouteManager.MicPreference ids, iOS RecordingMicrophonePreference parity). */

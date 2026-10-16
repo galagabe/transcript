@@ -43,9 +43,9 @@ data class MuesliColors(
 
 /** Accent variants, hex values from muesli-ios MuesliAccentTheme. */
 enum class MuesliAccentTheme(val id: String, val label: String, val darkHex: Long, val lightHex: Long) {
-  BLUE("blue", "Blue", 0x6BA3F7, 0x2563EB),
-  GREEN("green", "Green", 0x34D399, 0x059669),
-  SLATE("slate", "Slate", 0xCBD5E1, 0x475569);
+  BLUE("blue", "Bleu", 0x6BA3F7, 0x2563EB),
+  GREEN("green", "Vert", 0x34D399, 0x059669),
+  SLATE("slate", "Ardoise", 0xCBD5E1, 0x475569);
 
   fun color(dark: Boolean): Color = Color(0xFF000000L or (if (dark) darkHex else lightHex))
 

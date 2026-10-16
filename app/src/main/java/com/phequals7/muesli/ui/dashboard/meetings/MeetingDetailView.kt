@@ -29,7 +29,7 @@ import com.phequals7.muesli.summaries.SummaryWorker
 import com.phequals7.muesli.theme.MuesliCorners
 import com.phequals7.muesli.theme.MuesliSpacing
 import com.phequals7.muesli.theme.MuesliTheme
-import com.phequals7.muesli.ui.dashboard.voicenotes.MuesliSurfaceCard
+import com.phequals7.muesli.ui.components.MuesliSurfaceCard
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
@@ -77,10 +77,10 @@ fun MeetingDetailView(
         meeting.audioFileName?.let { File(context.filesDir, "meetings/$it") }
     }
     val dateLine = buildString {
-        append(SimpleDateFormat("d MMM yyyy 'at' h:mm a", Locale.getDefault()).format(Date(meeting.createdAt)))
+        append(SimpleDateFormat("d MMM yyyy 'à' HH:mm", Locale.FRENCH).format(Date(meeting.createdAt)))
         if (meeting.startedAt != null && meeting.endedAt != null) {
             val mins = (meeting.endedAt - meeting.startedAt) / 60_000L
-            append(if (mins >= 1) " · $mins min" else " · <1 min")
+            append(if (mins >= 1) " · $mins min" else " · < 1 min")
         }
         append(" · ${template.label}")
     }
@@ -89,15 +89,15 @@ fun MeetingDetailView(
         val body = buildString {
             append(meeting.title).append("\n").append(dateLine).append("\n\n")
             if (meeting.summaryText.isNotBlank()) append(meeting.summaryText).append("\n\n")
-            if (notes.isNotBlank()) append("## Written Notes\n").append(notes).append("\n\n")
-            if (!transcriptText.isNullOrBlank()) append("## Transcript\n").append(transcriptText)
+            if (notes.isNotBlank()) append("## Notes saisies\n").append(notes).append("\n\n")
+            if (!transcriptText.isNullOrBlank()) append("## Transcription\n").append(transcriptText)
         }
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_SUBJECT, meeting.title)
             putExtra(Intent.EXTRA_TEXT, body)
         }
-        context.startActivity(Intent.createChooser(intent, "Share meeting"))
+        context.startActivity(Intent.createChooser(intent, "Partager la réunion"))
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -109,11 +109,11 @@ fun MeetingDetailView(
                 .padding(horizontal = MuesliSpacing.s8, vertical = MuesliSpacing.s8)
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = colors.textPrimary)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour", tint = colors.textPrimary)
             }
             Spacer(modifier = Modifier.weight(1f))
             IconButton(onClick = { shareMeeting() }) {
-                Icon(Icons.Default.Share, contentDescription = "Share", tint = colors.accent)
+                Icon(Icons.Default.Share, contentDescription = "Partager", tint = colors.accent)
             }
             IconButton(onClick = {
                 scope.launch {
@@ -121,7 +121,7 @@ fun MeetingDetailView(
                     onDeleted()
                 }
             }) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = colors.destructive)
+                Icon(Icons.Default.Delete, contentDescription = "Supprimer", tint = colors.destructive)
             }
         }
 
@@ -238,7 +238,7 @@ fun MeetingDetailView(
                         Column(modifier = Modifier.padding(MuesliSpacing.s16)) {
                             if (transcriptText.isNullOrBlank()) {
                                 Text(
-                                    if (meeting.phase == "completed") "No speech was transcribed." else "No transcript yet.",
+                                    if (meeting.phase == "completed") "Aucune parole n’a été transcrite." else "Pas encore de transcription.",
                                     color = colors.textSecondary,
                                     fontSize = 13.sp
                                 )
@@ -261,7 +261,7 @@ fun MeetingDetailView(
                             onValueChange = { notes = it },
                             placeholder = {
                                 Text(
-                                    "Write notes for this meeting...",
+                                    "Saisissez vos notes pour cette réunion…",
                                     color = colors.textTertiary,
                                     fontSize = 14.sp
                                 )
@@ -287,7 +287,7 @@ fun MeetingDetailView(
 }
 
 private enum class MeetingSection(val label: String) {
-    SUMMARY("Summary"),
-    TRANSCRIPT("Transcript"),
+    SUMMARY("Compte rendu"),
+    TRANSCRIPT("Transcription"),
     NOTES("Notes"),
 }

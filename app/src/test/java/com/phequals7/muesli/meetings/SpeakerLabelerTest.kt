@@ -42,8 +42,8 @@ class SpeakerLabelerTest {
         )
         val rendered = SpeakerLabeler.render(chunks, segments)
         assertEquals(
-            "Speaker 1 · 0:00\nhello there\n\nstill me talking\n\n" +
-                "Speaker 2 · 0:16\nthe other person replies",
+            "Intervenant 1 · 0:00\nhello there\n\nstill me talking\n\n" +
+                "Intervenant 2 · 0:16\nthe other person replies",
             rendered
         )
     }
@@ -56,10 +56,10 @@ class SpeakerLabelerTest {
         )
         val segments = listOf(SpeakerSegment(0f, 6f, speaker = 2))
         val rendered = SpeakerLabeler.render(chunks, segments)
-        assertTrue(rendered.startsWith("Speaker 3 · 0:00\nfirst"))
+        assertTrue(rendered.startsWith("Intervenant 3 · 0:00\nfirst"))
         assertTrue(rendered.contains("no segment covers this"))
         // No new heading for the orphan chunk (inherits speaker 2)
-        assertEquals(1, rendered.split("Speaker 3").size - 1)
+        assertEquals(1, rendered.split("Intervenant 3").size - 1)
     }
 
     @Test

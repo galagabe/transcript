@@ -84,7 +84,7 @@ fun LaunchWarmupScreen(
         ) {
             Image(
                 painter = painterResource(id = R.drawable.ic_muesli_logo),
-                contentDescription = "Muesli",
+                contentDescription = "Clindy",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size(74.dp)
@@ -97,7 +97,7 @@ fun LaunchWarmupScreen(
                     .clip(RoundedCornerShape(16.dp))
             )
             Text(
-                "muesli",
+                "Clindy",
                 color = Color.White.copy(alpha = 0.94f),
                 fontSize = 34.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -133,9 +133,9 @@ fun LaunchWarmupScreen(
                 }
                 Text(
                     text = when (warmState) {
-                        SherpaRecognizerHolder.WarmState.READY -> "Transcription engine ready"
-                        SherpaRecognizerHolder.WarmState.FAILED -> "Warmup paused"
-                        else -> "Warming up the transcription engine..."
+                        SherpaRecognizerHolder.WarmState.READY -> "Moteur de transcription prêt"
+                        SherpaRecognizerHolder.WarmState.FAILED -> "Préchargement interrompu"
+                        else -> "Préparation du moteur de transcription…"
                     },
                     color = Color.White.copy(alpha = 0.68f),
                     fontSize = 13.sp,
