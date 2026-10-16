@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import com.phequals7.muesli.data.SharedStore
 import com.phequals7.muesli.data.entity.RecordingSession
 import com.phequals7.muesli.meetings.MeetingTemplate
+import com.phequals7.muesli.summaries.SummaryWorker
 import com.phequals7.muesli.theme.MuesliCorners
 import com.phequals7.muesli.theme.MuesliSpacing
 import com.phequals7.muesli.theme.MuesliTheme
@@ -203,14 +204,32 @@ fun MeetingDetailView(
                                     horizontalArrangement = Arrangement.spacedBy(MuesliSpacing.s12)
                                 ) {
                                     CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = colors.accent)
-                                    Text("Generating meeting notes...", color = colors.textSecondary, fontSize = 13.sp)
+                                    Text("Rédaction du compte rendu…", color = colors.textSecondary, fontSize = 13.sp)
                                 }
-                                else -> Text(
-                                    "No AI summary for this meeting. Enable Meeting Summaries and sign in from Settings → AI Summaries before your next meeting.",
+                                "queued" -> Text(
+                                    "Compte rendu en attente de réseau. Il sera généré automatiquement dès que le téléphone sera connecté.",
                                     color = colors.textSecondary,
                                     fontSize = 13.sp,
                                     lineHeight = 18.sp
                                 )
+                                else -> Text(
+                                    "Aucun compte rendu pour cette réunion.",
+                                    color = colors.textSecondary,
+                                    fontSize = 13.sp,
+                                    lineHeight = 18.sp
+                                )
+                            }
+
+                            val canRetry = meeting.phase == "completed" &&
+                                !transcriptText.isNullOrBlank() &&
+                                meeting.summaryState !in setOf("queued", "generating")
+                            if (canRetry) {
+                                Spacer(modifier = Modifier.height(MuesliSpacing.s12))
+                                OutlinedButton(
+                                    onClick = { scope.launch { SummaryWorker.enqueue(context, meeting.id) } }
+                                ) {
+                                    Text("Relancer la synthèse", color = colors.accent, fontSize = 13.sp)
+                                }
                             }
                         }
                     }

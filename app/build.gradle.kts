@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
   alias(libs.plugins.android.application)
   // No version: AGP 9 already bundles the Kotlin plugin on the classpath.
@@ -6,6 +8,15 @@ plugins {
   alias(libs.plugins.kotlin.serialization)
   alias(libs.plugins.ksp)
 }
+
+// Clinitex summary webhook: read from local.properties (git-ignored) or -P
+// Gradle properties so the URL and device token are never committed.
+val localProps = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+fun clinitexProp(name: String): String =
+    (findProperty(name) as String?) ?: localProps.getProperty(name, "")
 
 android {
     namespace = "com.phequals7.muesli"
@@ -16,6 +27,8 @@ android {
         targetSdk = 36
         versionCode = 3
         versionName = "0.3.0-alpha"
+        buildConfigField("String", "CLINITEX_SUMMARY_URL", "\"${clinitexProp("clinitex.summaryUrl")}\"")
+        buildConfigField("String", "CLINITEX_DEVICE_TOKEN", "\"${clinitexProp("clinitex.deviceToken")}\"")
     }
 
     buildTypes {
@@ -33,7 +46,7 @@ android {
     buildFeatures {
       compose = true
       aidl = false
-      buildConfig = false
+      buildConfig = true
       shaders = false
     }
 
@@ -105,6 +118,9 @@ dependencies {
   // Networking (AI summaries: OpenRouter + ChatGPT WHAM SSE)
   implementation(libs.okhttp)
   implementation(libs.kotlinx.serialization.json)
+
+  // Deferred Clinitex summaries: queued until the phone is back online
+  implementation(libs.androidx.work.runtime.ktx)
 
   // tar.bz2 extraction for models distributed as archives (Parakeet 110M)
   implementation(libs.commons.compress)

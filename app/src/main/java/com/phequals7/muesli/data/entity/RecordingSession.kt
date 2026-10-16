@@ -25,6 +25,6 @@ data class RecordingSession(
     val manualNotes: String = "",
     /** AI-generated structured notes (or failure notes when generation fails). */
     val summaryText: String = "",
-    /** "notStarted", "generating", "completed", "failed", "unavailable". */
+    /** "notStarted", "queued" (waiting for network), "generating", "completed", "failed", "unavailable". */
     val summaryState: String = "notStarted"
 )
