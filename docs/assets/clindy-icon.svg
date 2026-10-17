@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="18 18 72 72" width="192" height="192">
+  <!-- Clindy app icon for the README: same drawing as res/drawable/ic_launcher_foreground_clindy.xml
+       on the clindy_icon_background blue, cropped to the 72dp visible area of the adaptive icon. -->
+  <rect x="18" y="18" width="72" height="72" rx="16" fill="#164194"/>
+  <g transform="translate(-6,-6) translate(60,60) scale(0.75) translate(-60,-60)" stroke-linecap="round" stroke-width="5" fill="none">
+    <path fill="#FFFFFF" stroke="none" d="M49,39 a11,11 0 0,1 22,0 v18 a11,11 0 0,1 -22,0 z"/>
+    <path stroke="#FFFFFF" d="M40,58 a20,20 0 0,0 40,0"/>
+    <path stroke="#FFFFFF" d="M60,78 L60,90 M48,92 L72,92"/>
+    <path stroke="#C9E5D8" d="M28,40 a28,28 0 0,0 0,32 M92,40 a28,28 0 0,1 0,32"/>
+  </g>
+</svg>

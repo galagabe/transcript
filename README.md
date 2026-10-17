@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="app/src/main/res/drawable-nodpi/logo_clinitex.png" alt="Clinitex" width="96"/>
+  <img src="docs/assets/clindy-icon.svg" alt="Icône de l'application Clindy" width="96"/>
 </p>
 
 <h1 align="center">Clindy</h1>
