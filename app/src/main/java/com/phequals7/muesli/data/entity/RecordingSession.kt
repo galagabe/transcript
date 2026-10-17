@@ -9,7 +9,7 @@ data class RecordingSession(
     @PrimaryKey
     val id: String = UUID.randomUUID().toString(),
     val requestID: String? = null,
-    val kind: String, // "quickDictation", "keyboardDictation", "meeting"
+    val kind: String, // KIND_MEETING ("meeting") or KIND_VOICE_NOTE ("voiceNote"); legacy Muesli dictation kinds are unused
     val title: String,
     val createdAt: Long = System.currentTimeMillis(),
     val startedAt: Long? = null,
@@ -27,4 +27,10 @@ data class RecordingSession(
     val summaryText: String = "",
     /** "notStarted", "queued" (waiting for network), "generating", "completed", "failed", "unavailable". */
     val summaryState: String = "notStarted"
-)
+) {
+    companion object {
+        const val KIND_MEETING = "meeting"
+        /** Short dictation cleaned up by the summary webhook (Vocaux tab). */
+        const val KIND_VOICE_NOTE = "voiceNote"
+    }
+}

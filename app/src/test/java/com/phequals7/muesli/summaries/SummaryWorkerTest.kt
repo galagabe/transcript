@@ -103,6 +103,30 @@ class SummaryWorkerTest {
     }
 
     @Test
+    fun `voice note is cleaned up with the noteVocale template`() = runTest {
+        server.enqueue(
+            MockResponse().setResponseCode(200)
+                .setBody("""{"title":"Consignes équipe du soir","notes":"## Note\nTexte.\n\n## À faire\n- [ ] Fermer"}""")
+        )
+        val voiceNote = meeting.copy(
+            id = "vocal-1",
+            kind = RecordingSession.KIND_VOICE_NOTE,
+            title = "Vocal du 16 oct. à 17:42",
+            templateId = MeetingTemplate.NOTE_VOCALE.id,
+            manualNotes = "",
+        )
+        val sessions = FakeSessions(voiceNote, "alors pour l'équipe du soir euh fermer les fenêtres")
+
+        val outcome = runner(sessions).run(voiceNote.id, attempt = 0, maxAttempts = 8)
+
+        assertEquals(SummaryRunner.Outcome.COMPLETED, outcome)
+        assertEquals("Consignes équipe du soir", sessions.current.title)
+        val body = Json.parseToJsonElement(server.takeRequest().body.readUtf8()).jsonObject
+        assertEquals("noteVocale", body["templateId"]!!.jsonPrimitive.content)
+        assertEquals(MeetingTemplate.NOTE_VOCALE.instructions, body["templateInstructions"]!!.jsonPrimitive.content)
+    }
+
+    @Test
     fun `keeps the meeting title when the webhook returns none`() = runTest {
         server.enqueue(MockResponse().setResponseCode(200).setBody("""{"notes":"Notes"}"""))
         val sessions = FakeSessions(meeting, transcript)

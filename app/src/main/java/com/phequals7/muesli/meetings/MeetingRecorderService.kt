@@ -63,6 +63,8 @@ class MeetingRecorderService : Service() {
         const val EXTRA_SESSION_ID = "session_id"
         const val EXTRA_TITLE = "title"
         const val EXTRA_TEMPLATE_ID = "template_id"
+        /** RecordingSession.kind: meeting (default) or voice note (no diarization). */
+        const val EXTRA_KIND = "kind"
 
         private const val SAMPLE_RATE = 16000
         private const val CHUNK_SECONDS = 30 // fallback when VAD is unavailable
@@ -82,6 +84,7 @@ class MeetingRecorderService : Service() {
 
     private var sessionId: String? = null
     private var sessionTitle: String = ""
+    private var sessionKind: String = RecordingSession.KIND_MEETING
     private var startedAtMs: Long = 0
 
     private var audioRecord: AudioRecord? = null
@@ -116,8 +119,10 @@ class MeetingRecorderService : Service() {
             ACTION_START -> {
                 val id = intent.getStringExtra(EXTRA_SESSION_ID) ?: UUID.randomUUID().toString()
                 val title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
-                val templateId = intent.getStringExtra(EXTRA_TEMPLATE_ID) ?: MeetingTemplate.GENERAL.id
-                startRecording(id, title, templateId)
+                val kind = intent.getStringExtra(EXTRA_KIND) ?: RecordingSession.KIND_MEETING
+                val templateId = intent.getStringExtra(EXTRA_TEMPLATE_ID)
+                    ?: if (kind == RecordingSession.KIND_VOICE_NOTE) MeetingTemplate.NOTE_VOCALE.id else MeetingTemplate.GENERAL.id
+                startRecording(id, title, templateId, kind)
             }
             ACTION_STOP -> stopRecording(discard = false)
             ACTION_DISCARD -> stopRecording(discard = true)
@@ -127,17 +132,18 @@ class MeetingRecorderService : Service() {
 
     // ── lifecycle ────────────────────────────────────────────────────────
 
-    private fun startRecording(id: String, title: String, templateId: String) {
+    private fun startRecording(id: String, title: String, templateId: String, kind: String) {
         if (capturing.get()) return
 
         val selectedModel = SpeechModels.selected(this)
         if (!ModelManager(this, selectedModel).isDownloaded()) {
-            failSession(id, title, templateId, "Le modèle ${selectedModel.shortName} n’est pas téléchargé.")
+            failSession(id, title, templateId, kind, "Le modèle ${selectedModel.shortName} n’est pas téléchargé.")
             return
         }
 
         sessionId = id
         sessionTitle = title
+        sessionKind = kind
         startedAtMs = System.currentTimeMillis()
         transcriptParts.clear()
         synchronized(lock) {
@@ -174,7 +180,7 @@ class MeetingRecorderService : Service() {
             store.insertRecordingSession(
                 RecordingSession(
                     id = id,
-                    kind = "meeting",
+                    kind = kind,
                     title = title,
                     startedAt = startedAtMs,
                     phase = "recording",
@@ -185,7 +191,7 @@ class MeetingRecorderService : Service() {
         }
 
         startForegroundWithNotification(title)
-        MeetingRecordingController.onCaptureStarted(id, title)
+        MeetingRecordingController.onCaptureStarted(id, title, kind, templateId)
 
         try {
             // Warm the recognizer before opening the mic.
@@ -200,7 +206,7 @@ class MeetingRecorderService : Service() {
             capturing.set(true)
         } catch (t: Throwable) {
             Log.e(TAG, "Failed to start capture", t)
-            failSession(id, title, templateId, "Impossible de démarrer le micro : ${t.message}")
+            failSession(id, title, templateId, kind, "Impossible de démarrer le micro : ${t.message}")
             teardown()
         }
     }
@@ -248,7 +254,9 @@ class MeetingRecorderService : Service() {
             val endedAt = System.currentTimeMillis()
             val audioName = wavFile?.name
 
-            if (!discard && store.speakerLabelsEnabled && wavFile != null && finalText.isNotBlank()) {
+            // Voice notes are a single speaker: no diarization, no "Intervenant N" labels.
+            val isVoiceNote = sessionKind == RecordingSession.KIND_VOICE_NOTE
+            if (!discard && !isVoiceNote && store.speakerLabelsEnabled && wavFile != null && finalText.isNotBlank()) {
                 finalText = try {
                     diarizeAndLabel(finalText)
                 } catch (t: Throwable) {
@@ -322,13 +330,15 @@ class MeetingRecorderService : Service() {
         vad = null
     }
 
-    private fun failSession(id: String, title: String, templateId: String, message: String) {
+    private fun failSession(id: String, title: String, templateId: String, kind: String, message: String) {
         serviceScope.launch {
             store.insertRecordingSession(
                 RecordingSession(
                     id = id,
-                    kind = "meeting",
-                    title = title.ifEmpty { "Réunion sans titre" },
+                    kind = kind,
+                    title = title.ifEmpty {
+                        if (kind == RecordingSession.KIND_VOICE_NOTE) "Vocal sans titre" else "Réunion sans titre"
+                    },
                     phase = "failed",
                     errorMessage = message,
                     engineIdentifier = SpeechModels.selected(this@MeetingRecorderService).id,
@@ -672,7 +682,7 @@ class MeetingRecorderService : Service() {
 
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("Enregistrement en cours")
+            .setContentTitle(if (sessionKind == RecordingSession.KIND_VOICE_NOTE) "Dictée en cours" else "Enregistrement en cours")
             .setContentText(title.ifEmpty { "Clindy" })
             .setContentIntent(openApp)
             .setOngoing(true)

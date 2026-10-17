@@ -4,36 +4,43 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.outlined.Groups
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.activity.compose.BackHandler
 import com.phequals7.muesli.data.SharedStore
-import com.phequals7.muesli.data.entity.CustomWord
-import com.phequals7.muesli.model.ModelManager
-import com.phequals7.muesli.theme.MuesliCorners
-import com.phequals7.muesli.theme.MuesliSpacing
-import com.phequals7.muesli.theme.MuesliTheme
+import com.phequals7.muesli.data.entity.RecordingSession
+import com.phequals7.muesli.meetings.MeetingRecordingController
+import com.phequals7.muesli.theme.ClinitexPalette
+import com.phequals7.muesli.theme.ClinitexType
+import com.phequals7.muesli.ui.components.ScreenBackground
+import com.phequals7.muesli.ui.dashboard.meetings.MeetingDetailView
 import com.phequals7.muesli.ui.dashboard.meetings.MeetingsTab
 import com.phequals7.muesli.ui.dashboard.settings.SettingsTab
-import kotlinx.coroutines.launch
+import com.phequals7.muesli.ui.dashboard.voicenotes.VoiceNoteDetailView
+import com.phequals7.muesli.ui.dashboard.voicenotes.VoiceNotesTab
+import com.phequals7.muesli.ui.recording.RecordingScreen
 
 enum class DashboardTab(val label: String, val icon: ImageVector) {
-    MEETINGS("Réunions", Icons.Default.Groups),
-    SETTINGS("Réglages", Icons.Default.Settings)
+    MEETINGS("Réunions", Icons.Outlined.Groups),
+    VOICE_NOTES("Vocaux", Icons.Filled.GraphicEq),
+    SETTINGS("Réglages", Icons.Outlined.Settings),
 }
 
 @Composable
@@ -42,18 +49,56 @@ fun DashboardScreen(
 ) {
     val context = LocalContext.current
     val store = remember { SharedStore(context) }
-    val colors = MuesliTheme.colors
 
     var activeTab by remember { mutableStateOf(DashboardTab.MEETINGS) }
+    // Detail screens are full-screen (no bottom navigation, own bottom action bar).
+    var openSessionId by remember { mutableStateOf<String?>(null) }
+
+    // A running capture (meeting or voice note) takes the whole screen.
+    if (MeetingRecordingController.isActive) {
+        Box(modifier = modifier.fillMaxSize()) { RecordingScreen() }
+        return
+    }
+
+    val detailId = openSessionId
+    if (detailId != null) {
+        var session by remember(detailId) { mutableStateOf<RecordingSession?>(null) }
+        LaunchedEffect(detailId) {
+            // Live row: summary state changes show up immediately. Deleted → back to the list.
+            store.getRecordingSessionFlow(detailId).collect { s ->
+                if (s == null) openSessionId = null else session = s
+            }
+        }
+        BackHandler { openSessionId = null }
+        val current = session
+        Box(modifier = modifier.fillMaxSize()) {
+            if (current != null) {
+                if (current.kind == RecordingSession.KIND_VOICE_NOTE) {
+                    VoiceNoteDetailView(store = store, note = current, onBack = { openSessionId = null })
+                } else {
+                    MeetingDetailView(
+                        store = store,
+                        meeting = current,
+                        onBack = { openSessionId = null },
+                        onDeleted = { openSessionId = null },
+                    )
+                }
+            } else {
+                ScreenBackground(ClinitexPalette.Paper)
+            }
+        }
+        return
+    }
 
     Scaffold(
         bottomBar = {
-            MuesliBottomNav(
+            ClinitexBottomNav(
                 activeTab = activeTab,
                 onTabSelected = { activeTab = it }
             )
         },
-        containerColor = colors.backgroundDeep,
+        containerColor = Color.Transparent,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         modifier = modifier.fillMaxSize()
     ) { innerPadding ->
         Box(
@@ -64,7 +109,11 @@ fun DashboardScreen(
             when (activeTab) {
                 DashboardTab.MEETINGS -> MeetingsTab(
                     store = store,
-                    onNavigateToSettings = { activeTab = DashboardTab.SETTINGS }
+                    onOpenMeeting = { openSessionId = it },
+                )
+                DashboardTab.VOICE_NOTES -> VoiceNotesTab(
+                    store = store,
+                    onOpenNote = { openSessionId = it },
                 )
                 DashboardTab.SETTINGS -> SettingsTab(store)
             }
@@ -73,64 +122,57 @@ fun DashboardScreen(
 }
 
 /**
- * Floating glass pill navigation, modeled on the muesli-ios liquid-glass nav
- * (MuesliTheme.Navigation: 24dp container corner, 23dp selection corner,
- * 28dp horizontal inset, 44dp item height, accent-tinted selection).
+ * Floating pill navigation (Clinitex): white, 1dp line border, light blue
+ * shadow; the active tab is a solid blue pill with white label.
  */
 @Composable
-private fun MuesliBottomNav(
+private fun ClinitexBottomNav(
     activeTab: DashboardTab,
     onTabSelected: (DashboardTab) -> Unit
 ) {
-    val colors = MuesliTheme.colors
-    val containerShape = RoundedCornerShape(MuesliCorners.navContainer)
-    val selectionShape = RoundedCornerShape(MuesliCorners.navSelection)
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .navigationBarsPadding()
-            .padding(horizontal = 28.dp, vertical = MuesliSpacing.s12)
-            .clip(containerShape)
-            .background(colors.backgroundRaised)
-            .border(1.dp, colors.surfaceBorder, containerShape)
-            .padding(MuesliSpacing.s4),
-        horizontalArrangement = Arrangement.spacedBy(MuesliSpacing.s4)
+            .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 16.dp)
+            .shadow(
+                elevation = 8.dp,
+                shape = CircleShape,
+                ambientColor = ClinitexPalette.Blue.copy(alpha = 0.10f),
+                spotColor = ClinitexPalette.Blue.copy(alpha = 0.14f),
+            )
+            .clip(CircleShape)
+            .background(ClinitexPalette.Paper)
+            .border(1.dp, ClinitexPalette.Line, CircleShape)
+            .padding(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         DashboardTab.entries.forEach { tab ->
             val selected = tab == activeTab
-            Column(
+            val content = if (selected) ClinitexPalette.Paper else ClinitexPalette.InkSoft
+            Row(
                 modifier = Modifier
-                    .weight(1f)
-                    .height(44.dp)
-                    .clip(selectionShape)
-                    .background(if (selected) colors.accent.copy(alpha = 0.24f) else Color.Transparent)
-                    .then(
-                        if (selected) {
-                            Modifier.border(1.dp, Color.White.copy(alpha = 0.20f), selectionShape)
-                        } else {
-                            Modifier
-                        }
-                    )
+                    .weight(if (selected) 1.2f else 1f)
+                    .height(48.dp)
+                    .clip(CircleShape)
+                    .background(if (selected) ClinitexPalette.Blue else Color.Transparent)
                     .clickable { onTabSelected(tab) },
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
                     imageVector = tab.icon,
-                    contentDescription = tab.label,
-                    tint = if (selected) colors.accent else colors.textSecondary,
+                    contentDescription = null,
+                    tint = content,
                     modifier = Modifier.size(18.dp)
                 )
+                Spacer(Modifier.width(6.dp))
                 Text(
                     text = tab.label,
-                    color = if (selected) colors.accent else colors.textSecondary,
-                    fontSize = 10.sp,
-                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+                    style = ClinitexType.body(13.sp, if (selected) FontWeight.Bold else FontWeight.Medium, 16.sp),
+                    color = content,
+                    maxLines = 1,
                 )
             }
         }
     }
 }
-
-// ======================== TABS CONTENT IMPLEMENTATIONS ========================

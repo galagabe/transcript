@@ -1,27 +1,31 @@
 package com.phequals7.muesli
 
+import android.graphics.Color as AndroidColor
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import com.phequals7.muesli.data.SharedStore
 import com.phequals7.muesli.engine.SherpaRecognizerHolder
 import com.phequals7.muesli.model.ModelManager
 import com.phequals7.muesli.model.SpeechModels
-import com.phequals7.muesli.theme.AppearanceController
+import com.phequals7.muesli.theme.AppChrome
+import com.phequals7.muesli.theme.ClinitexPalette
 import com.phequals7.muesli.theme.MuesliTheme
 import com.phequals7.muesli.ui.launch.LaunchWarmupScreen
 import kotlinx.coroutines.delay
@@ -36,14 +40,28 @@ class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
 
-    AppearanceController.ensureInitialized(this)
-    enableEdgeToEdge()
+    // Light-only app: dark system-bar icons whatever the system dark mode
+    // (switched to light icons below while the full-blue recording screen shows).
+    enableEdgeToEdge(
+      statusBarStyle = SystemBarStyle.light(AndroidColor.TRANSPARENT, AndroidColor.TRANSPARENT),
+      navigationBarStyle = SystemBarStyle.light(AndroidColor.TRANSPARENT, AndroidColor.TRANSPARENT),
+    )
 
     setContent {
       MuesliTheme {
+        val view = LocalView.current
+        val onBlue = AppChrome.background == ClinitexPalette.Blue
+        SideEffect {
+          WindowCompat.getInsetsController(window, view).apply {
+            isAppearanceLightStatusBars = !onBlue
+            isAppearanceLightNavigationBars = !onBlue
+          }
+        }
+
         Surface(
           modifier = Modifier.fillMaxSize(),
-          color = MaterialTheme.colorScheme.background
+          // Painted behind the system bars: follows the current screen's background.
+          color = AppChrome.background
         ) {
           val context = this@MainActivity
           val shouldWarmup = remember {

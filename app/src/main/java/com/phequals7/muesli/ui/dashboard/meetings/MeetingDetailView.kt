@@ -2,22 +2,16 @@ package com.phequals7.muesli.ui.dashboard.meetings
 
 import android.content.Intent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.IosShare
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -25,21 +19,35 @@ import androidx.compose.ui.unit.sp
 import com.phequals7.muesli.data.SharedStore
 import com.phequals7.muesli.data.entity.RecordingSession
 import com.phequals7.muesli.meetings.MeetingTemplate
+import com.phequals7.muesli.summaries.SummaryRunner
 import com.phequals7.muesli.summaries.SummaryWorker
-import com.phequals7.muesli.theme.MuesliCorners
-import com.phequals7.muesli.theme.MuesliSpacing
-import com.phequals7.muesli.theme.MuesliTheme
-import com.phequals7.muesli.ui.components.MuesliSurfaceCard
+import com.phequals7.muesli.theme.ClinitexPalette
+import com.phequals7.muesli.theme.ClinitexType
+import com.phequals7.muesli.ui.components.BottomActionBar
+import com.phequals7.muesli.ui.components.BrandInput
+import com.phequals7.muesli.ui.components.ConfirmDialog
+import com.phequals7.muesli.ui.components.DisplayTitle
+import com.phequals7.muesli.ui.components.NoticeBox
+import com.phequals7.muesli.ui.components.NoticeTone
+import com.phequals7.muesli.ui.components.PillButton
+import com.phequals7.muesli.ui.components.PillVariant
+import com.phequals7.muesli.ui.components.RoundIconButton
+import com.phequals7.muesli.ui.components.ScreenBackground
+import com.phequals7.muesli.ui.components.SegmentedPills
+import com.phequals7.muesli.ui.components.StatusBadge
+import com.phequals7.muesli.ui.dashboard.BadgeTone
+import com.phequals7.muesli.ui.dashboard.DisplayFormat
+import com.phequals7.muesli.ui.notes.NotesMarkdown
+import com.phequals7.muesli.ui.notes.NotesView
+import com.phequals7.muesli.ui.notes.TranscriptView
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 /**
- * Meeting detail — transcript review + manual notes + share/delete,
- * the Android counterpart of the iOS meeting detail (Notes / Raw tabs).
+ * Meeting detail (CompteRendu.dc.html): uppercase title, pill tabs
+ * "Compte rendu / Transcription / Notes", summary rendered from Markdown,
+ * bottom bar "Partager" + "Relancer la synthèse".
  */
 @Composable
 fun MeetingDetailView(
@@ -50,25 +58,26 @@ fun MeetingDetailView(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val colors = MuesliTheme.colors
 
     var transcriptText by remember { mutableStateOf<String?>(null) }
     var notes by remember { mutableStateOf(meeting.manualNotes) }
     var activeSection by remember {
         mutableStateOf(if (meeting.summaryText.isNotBlank()) MeetingSection.SUMMARY else MeetingSection.TRANSCRIPT)
     }
+    var confirmDelete by remember { mutableStateOf(false) }
+
+    ScreenBackground(ClinitexPalette.Paper)
 
     LaunchedEffect(meeting.id) {
-        launch {
-            store.getTranscriptForSessionFlow(meeting.id).collect { transcriptText = it?.text }
-        }
+        store.getTranscriptForSessionFlow(meeting.id).collect { transcriptText = it?.text }
     }
 
     // Debounced notes persistence
     LaunchedEffect(notes) {
         if (notes == meeting.manualNotes) return@LaunchedEffect
         delay(600)
-        store.updateRecordingSession(meeting.copy(manualNotes = notes))
+        // Re-read the row: a summary may have landed meanwhile and must not be overwritten.
+        store.getRecordingSessionById(meeting.id)?.let { store.updateRecordingSession(it.copy(manualNotes = notes)) }
     }
 
     val template = MeetingTemplate.fromId(meeting.templateId)
@@ -76,22 +85,23 @@ fun MeetingDetailView(
     val audioFile = remember(meeting.audioFileName) {
         meeting.audioFileName?.let { File(context.filesDir, "meetings/$it") }
     }
-    val dateLine = buildString {
-        append(SimpleDateFormat("d MMM yyyy 'à' HH:mm", Locale.FRENCH).format(Date(meeting.createdAt)))
-        if (meeting.startedAt != null && meeting.endedAt != null) {
-            val mins = (meeting.endedAt - meeting.startedAt) / 60_000L
-            append(if (mins >= 1) " · $mins min" else " · < 1 min")
-        }
-        append(" · ${template.label}")
-    }
+    val dateLine = listOfNotNull(
+        DisplayFormat.fullDateTime(meeting.startedAt ?: meeting.createdAt),
+        DisplayFormat.minutes(meeting.startedAt, meeting.endedAt),
+        template.label,
+    ).joinToString(" · ")
+
+    val canRetry = meeting.phase == "completed" &&
+        !transcriptText.isNullOrBlank() &&
+        meeting.summaryState !in setOf(SummaryRunner.STATE_QUEUED, SummaryRunner.STATE_GENERATING)
 
     fun shareMeeting() {
         val body = buildString {
             append(meeting.title).append("\n").append(dateLine).append("\n\n")
-            if (meeting.summaryText.isNotBlank()) append(meeting.summaryText).append("\n\n")
-            if (notes.isNotBlank()) append("## Notes saisies\n").append(notes).append("\n\n")
-            if (!transcriptText.isNullOrBlank()) append("## Transcription\n").append(transcriptText)
-        }
+            if (meeting.summaryText.isNotBlank()) append(NotesMarkdown.toPlainText(meeting.summaryText)).append("\n\n")
+            if (notes.isNotBlank()) append("Notes saisies\n").append(notes.trim()).append("\n\n")
+            if (!transcriptText.isNullOrBlank()) append("Transcription\n").append(transcriptText)
+        }.trim()
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_SUBJECT, meeting.title)
@@ -100,189 +110,144 @@ fun MeetingDetailView(
         context.startActivity(Intent.createChooser(intent, "Partager la réunion"))
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(ClinitexPalette.Paper)
+    ) {
         // Top bar: back / share / delete
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = MuesliSpacing.s8, vertical = MuesliSpacing.s8)
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour", tint = colors.textPrimary)
-            }
+        Row(modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 14.dp)) {
+            RoundIconButton(Icons.Default.ChevronLeft, "Retour aux réunions", onBack, iconSize = 28.dp)
             Spacer(modifier = Modifier.weight(1f))
-            IconButton(onClick = { shareMeeting() }) {
-                Icon(Icons.Default.Share, contentDescription = "Partager", tint = colors.accent)
-            }
-            IconButton(onClick = {
-                scope.launch {
-                    store.deleteRecordingSession(meeting)
-                    onDeleted()
-                }
-            }) {
-                Icon(Icons.Default.Delete, contentDescription = "Supprimer", tint = colors.destructive)
-            }
+            RoundIconButton(Icons.Outlined.Share, "Partager", { shareMeeting() }, iconSize = 20.dp)
+            RoundIconButton(Icons.Outlined.Delete, "Supprimer la réunion", { confirmDelete = true }, tint = ClinitexPalette.Muted, iconSize = 20.dp)
         }
 
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = MuesliSpacing.s16, vertical = MuesliSpacing.s8),
-            verticalArrangement = Arrangement.spacedBy(MuesliSpacing.s16)
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 24.dp),
         ) {
             item {
-                Column {
-                    Text(meeting.title, color = colors.textPrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.4).sp)
-                    Text(dateLine, color = colors.textSecondary, fontSize = 12.sp)
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    DisplayTitle(meeting.title, size = 24.sp, lineHeight = 25.sp)
+                    Text(dateLine, style = ClinitexType.body(13.sp, FontWeight.Normal, 18.sp), color = ClinitexPalette.Muted)
                     if (meeting.errorMessage != null) {
-                        Spacer(modifier = Modifier.height(MuesliSpacing.s8))
-                        Text(
-                            meeting.errorMessage,
-                            color = colors.destructive,
-                            fontSize = 12.sp,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(MuesliCorners.small))
-                                .background(colors.destructiveSubtle)
-                                .padding(horizontal = 10.dp, vertical = 6.dp)
-                        )
+                        NoticeBox(meeting.errorMessage, NoticeTone.DANGER, modifier = Modifier.padding(top = 6.dp))
                     }
                 }
             }
 
             // Retained meeting audio playback (only when a WAV was actually kept)
             if (audioFile != null && audioFile.exists()) {
-                item { MeetingAudioPlayer(audioFile) }
-            }
-
-            // Section picker: Transcript / Notes
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(MuesliCorners.medium))
-                        .background(colors.surfacePrimary)
-                        .padding(MuesliSpacing.s4),
-                    horizontalArrangement = Arrangement.spacedBy(MuesliSpacing.s4)
-                ) {
-                    MeetingSection.entries.forEach { section ->
-                        val selected = section == activeSection
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(MuesliCorners.small))
-                                .background(if (selected) colors.accent.copy(alpha = 0.24f) else Color.Transparent)
-                                .clickable { activeSection = section }
-                                .padding(vertical = MuesliSpacing.s8)
-                        ) {
-                            Text(
-                                section.label,
-                                color = if (selected) colors.accent else colors.textSecondary,
-                                fontSize = 13.sp,
-                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
-                            )
-                        }
-                    }
-                }
+                item { MeetingAudioPlayer(audioFile, modifier = Modifier.padding(top = 16.dp)) }
             }
 
             item {
-                when (activeSection) {
-                    MeetingSection.SUMMARY -> MuesliSurfaceCard {
-                        Column(modifier = Modifier.padding(MuesliSpacing.s16)) {
-                            when (meeting.summaryState) {
-                                "completed", "failed" -> SelectionContainer {
-                                    Text(
-                                        meeting.summaryText,
-                                        color = colors.textPrimary,
-                                        fontSize = 14.sp,
-                                        lineHeight = 21.sp
-                                    )
-                                }
-                                "generating" -> Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(MuesliSpacing.s12)
-                                ) {
-                                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = colors.accent)
-                                    Text("Rédaction du compte rendu…", color = colors.textSecondary, fontSize = 13.sp)
-                                }
-                                "queued" -> Text(
-                                    "Compte rendu en attente de réseau. Il sera généré automatiquement dès que le téléphone sera connecté.",
-                                    color = colors.textSecondary,
-                                    fontSize = 13.sp,
-                                    lineHeight = 18.sp
-                                )
-                                else -> Text(
-                                    "Aucun compte rendu pour cette réunion.",
-                                    color = colors.textSecondary,
-                                    fontSize = 13.sp,
-                                    lineHeight = 18.sp
-                                )
-                            }
+                SegmentedPills(
+                    options = MeetingSection.entries.map { it.label },
+                    selectedIndex = activeSection.ordinal,
+                    onSelect = { activeSection = MeetingSection.entries[it] },
+                    modifier = Modifier.padding(top = 16.dp),
+                )
+            }
 
-                            val canRetry = meeting.phase == "completed" &&
-                                !transcriptText.isNullOrBlank() &&
-                                meeting.summaryState !in setOf("queued", "generating")
-                            if (canRetry) {
-                                Spacer(modifier = Modifier.height(MuesliSpacing.s12))
-                                OutlinedButton(
-                                    onClick = { scope.launch { SummaryWorker.enqueue(context, meeting.id) } }
-                                ) {
-                                    Text("Relancer la synthèse", color = colors.accent, fontSize = 13.sp)
-                                }
-                            }
-                        }
-                    }
-
-                    MeetingSection.TRANSCRIPT -> MuesliSurfaceCard {
-                        Column(modifier = Modifier.padding(MuesliSpacing.s16)) {
-                            if (transcriptText.isNullOrBlank()) {
+            item {
+                Column(modifier = Modifier.padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    when (activeSection) {
+                        MeetingSection.SUMMARY -> SummarySection(meeting)
+                        MeetingSection.TRANSCRIPT -> {
+                            val text = transcriptText
+                            if (text.isNullOrBlank()) {
                                 Text(
                                     if (meeting.phase == "completed") "Aucune parole n’a été transcrite." else "Pas encore de transcription.",
-                                    color = colors.textSecondary,
-                                    fontSize = 13.sp
+                                    style = ClinitexType.body(14.sp),
+                                    color = ClinitexPalette.Muted,
                                 )
                             } else {
-                                SelectionContainer {
-                                    Text(
-                                        transcriptText!!,
-                                        color = colors.textPrimary,
-                                        fontSize = 14.sp,
-                                        lineHeight = 21.sp
-                                    )
-                                }
+                                TranscriptView(text)
                             }
                         }
-                    }
-
-                    MeetingSection.NOTES -> MuesliSurfaceCard {
-                        TextField(
+                        MeetingSection.NOTES -> BrandInput(
                             value = notes,
                             onValueChange = { notes = it },
-                            placeholder = {
-                                Text(
-                                    "Saisissez vos notes pour cette réunion…",
-                                    color = colors.textTertiary,
-                                    fontSize = 14.sp
-                                )
-                            },
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                focusedTextColor = colors.textPrimary,
-                                unfocusedTextColor = colors.textPrimary,
-                                cursorColor = colors.accent,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 200.dp)
+                            placeholder = "Saisissez vos notes pour cette réunion…",
+                            singleLine = false,
+                            minHeight = 200.dp,
                         )
                     }
                 }
             }
         }
+
+        BottomActionBar {
+            PillButton(
+                "Partager",
+                onClick = { shareMeeting() },
+                icon = Icons.Default.IosShare,
+                modifier = Modifier.weight(1f),
+            )
+            PillButton(
+                "Relancer la synthèse",
+                onClick = { scope.launch { SummaryWorker.enqueue(context, meeting.id) } },
+                variant = PillVariant.OUTLINE,
+                enabled = canRetry,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+
+    if (confirmDelete) {
+        ConfirmDialog(
+            title = "Supprimer la réunion ?",
+            text = "Le compte rendu, la transcription, les notes et l’audio seront supprimés du téléphone.",
+            confirmLabel = "Supprimer",
+            onConfirm = {
+                confirmDelete = false
+                scope.launch {
+                    store.deleteRecordingSessionFully(meeting)
+                    onDeleted()
+                }
+            },
+            onDismiss = { confirmDelete = false },
+        )
+    }
+}
+
+/** Summary tab body: status badge, then the rendered notes or the pending/failed state. */
+@Composable
+internal fun SummarySection(session: RecordingSession, readyLabel: String = "Compte rendu prêt", isVoiceNote: Boolean = false) {
+    when (session.summaryState) {
+        SummaryRunner.STATE_COMPLETED -> {
+            StatusBadge(readyLabel, BadgeTone.READY, withCheck = true)
+            NotesView(session.summaryText)
+        }
+        SummaryRunner.STATE_FAILED -> {
+            StatusBadge(if (isVoiceNote) "Mise au propre impossible" else "Synthèse impossible", BadgeTone.FAILED)
+            NotesView(session.summaryText)
+        }
+        SummaryRunner.STATE_GENERATING -> {
+            StatusBadge(if (isVoiceNote) "Mise au propre en cours" else "Rédaction en cours", BadgeTone.PENDING, loading = true)
+            Text(
+                if (isVoiceNote) "La note est en cours de mise au propre, elle arrive dans quelques instants."
+                else "Le compte rendu est en cours de rédaction, il arrive dans quelques instants.",
+                style = ClinitexType.body(14.sp),
+                color = ClinitexPalette.InkSoft,
+            )
+        }
+        SummaryRunner.STATE_QUEUED -> {
+            StatusBadge("En attente de réseau", BadgeTone.PENDING)
+            Text(
+                if (isVoiceNote) "La note sera mise au propre automatiquement dès que le téléphone sera connecté."
+                else "Le compte rendu sera généré automatiquement dès que le téléphone sera connecté.",
+                style = ClinitexType.body(14.sp),
+                color = ClinitexPalette.InkSoft,
+            )
+        }
+        else -> Text(
+            if (isVoiceNote) "Aucune note mise au propre pour ce vocal." else "Aucun compte rendu pour cette réunion.",
+            style = ClinitexType.body(14.sp),
+            color = ClinitexPalette.Muted,
+        )
     }
 }
 

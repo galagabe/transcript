@@ -24,8 +24,6 @@ class SharedStore(private val context: Context) {
         private const val KEY_FILLER_WORD_REMOVAL = "filler_word_removal"
         private const val KEY_CUSTOM_DICTIONARY = "custom_dictionary"
         private const val KEY_USER_PROFILE_NAME = "user_profile_name"
-        private const val KEY_APPEARANCE_MODE = "appearance_mode" // "system", "light", "dark"
-        private const val KEY_ACCENT_THEME = "accent_theme" // "blue", "green", "slate"
         private const val KEY_DEFAULT_MEETING_TEMPLATE = "default_meeting_template"
         private const val KEY_RETAIN_MEETING_AUDIO = "retain_meeting_audio"
         private const val KEY_SELECTED_MODEL_ID = "selected_model_id"
@@ -51,16 +49,6 @@ class SharedStore(private val context: Context) {
     var isCustomDictionaryEnabled: Boolean
         get() = prefs.getBoolean(KEY_CUSTOM_DICTIONARY, true)
         set(value) = prefs.edit().putBoolean(KEY_CUSTOM_DICTIONARY, value).apply()
-
-    /** Appearance: "system" (default), "light", or "dark". */
-    var appearanceMode: String
-        get() = prefs.getString(KEY_APPEARANCE_MODE, "system") ?: "system"
-        set(value) = prefs.edit().putString(KEY_APPEARANCE_MODE, value).apply()
-
-    /** Accent theme: "blue" (default), "green", or "slate" (MuesliAccentTheme). */
-    var accentTheme: String
-        get() = prefs.getString(KEY_ACCENT_THEME, "blue") ?: "blue"
-        set(value) = prefs.edit().putString(KEY_ACCENT_THEME, value).apply()
 
     /** Default meeting template preselected on the Meetings tab. */
     var defaultMeetingTemplate: String
@@ -109,8 +97,22 @@ class SharedStore(private val context: Context) {
 
     // Recording Sessions
     fun getRecordingSessionsFlow(): Flow<List<RecordingSession>> = recordingSessionDao.getAllSessionsFlow()
+    /** Sessions of one kind (RecordingSession.KIND_MEETING / KIND_VOICE_NOTE), newest first. */
+    fun getRecordingSessionsFlow(kind: String): Flow<List<RecordingSession>> = recordingSessionDao.getSessionsByKindFlow(kind)
     suspend fun getRecordingSessions(): List<RecordingSession> = recordingSessionDao.getAllSessions()
     suspend fun getRecordingSessionById(id: String): RecordingSession? = recordingSessionDao.getSessionById(id)
+    fun getRecordingSessionFlow(id: String): Flow<RecordingSession?> = recordingSessionDao.getSessionByIdFlow(id)
+
+    /** Deletes a session with its transcript and its retained WAV (if any). */
+    suspend fun deleteRecordingSessionFully(session: RecordingSession) {
+        transcriptDao.getTranscriptForSession(session.id)?.let { transcriptDao.deleteTranscript(it) }
+        session.audioFileName?.let { name ->
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                java.io.File(context.filesDir, "meetings/$name").delete()
+            }
+        }
+        recordingSessionDao.deleteSession(session)
+    }
     suspend fun getRecordingSessionByRequestId(requestId: String): RecordingSession? = recordingSessionDao.getSessionByRequestId(requestId)
     suspend fun insertRecordingSession(session: RecordingSession) = recordingSessionDao.insertSession(session)
     suspend fun updateRecordingSession(session: RecordingSession) = recordingSessionDao.updateSession(session)

@@ -2,108 +2,74 @@ package com.phequals7.muesli.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import com.phequals7.muesli.R
 
-// Type scale mapped from muesli-ios MuesliTheme fonts:
-//   title1: title/bold · title2: title2/semibold · title3: headline/semibold
-//   headline: callout/semibold · body: subheadline · transcript: body
-//   callout: footnote · caption: caption / caption-medium
-//
-// Letter-spacing is deliberate (design-taste pass): tight tracking on larger
-// text for a crisp product feel, positive tracking on small text for
-// legibility, and expanded tracking for label styles.
+/**
+ * Clinitex typography (brandbook 2024):
+ * - Display titles and eyebrows: AZO Sans Uber, weight 900, ALWAYS uppercase
+ *   (Compose has no text-transform: callers pass `.uppercase(Locale.FRENCH)`).
+ * - Body: Sofia Pro Soft 400 / 500 / 700, sentence case.
+ */
+val AzoSansUber = FontFamily(
+  Font(R.font.azo_sans_uber_black, FontWeight.Black),
+)
+
+val SofiaProSoft = FontFamily(
+  Font(R.font.sofia_pro_soft_regular, FontWeight.Normal),
+  Font(R.font.sofia_pro_soft_medium, FontWeight.Medium),
+  Font(R.font.sofia_pro_soft_bold, FontWeight.Bold),
+)
+
+/** Brand text styles used directly by the screens. */
+object ClinitexType {
+  /** Display title (AZO 900). Text must be uppercased by the caller. */
+  fun display(size: TextUnit, lineHeight: TextUnit = size * 1.04f): TextStyle = TextStyle(
+    fontFamily = AzoSansUber,
+    fontWeight = FontWeight.Black,
+    fontSize = size,
+    lineHeight = lineHeight,
+    letterSpacing = (-0.01).em,
+  )
+
+  /** Small uppercase label, often preceded by a 22×2dp blue bar. */
+  fun eyebrow(size: TextUnit = 12.sp, tracking: Float = 0.12f): TextStyle = TextStyle(
+    fontFamily = AzoSansUber,
+    fontWeight = FontWeight.Black,
+    fontSize = size,
+    lineHeight = size * 1.3f,
+    letterSpacing = tracking.em,
+  )
+
+  fun body(size: TextUnit = 15.sp, weight: FontWeight = FontWeight.Normal, lineHeight: TextUnit = size * 1.5f): TextStyle =
+    TextStyle(
+      fontFamily = SofiaProSoft,
+      fontWeight = weight,
+      fontSize = size,
+      lineHeight = lineHeight,
+    )
+}
+
 val Typography =
   Typography(
-    // title1() — .system(.title, weight: .bold)
-    headlineLarge =
-      TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Bold,
-        fontSize = 28.sp,
-        lineHeight = 34.sp,
-        letterSpacing = (-0.5).sp,
-      ),
-    // title2() — .system(.title2, weight: .semibold)
-    headlineMedium =
-      TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 22.sp,
-        lineHeight = 28.sp,
-        letterSpacing = (-0.4).sp,
-      ),
-    // title3() — .system(.headline, weight: .semibold)
-    headlineSmall =
-      TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 17.sp,
-        lineHeight = 22.sp,
-        letterSpacing = (-0.2).sp,
-      ),
-    // headline() — .system(.callout, weight: .semibold)
-    titleMedium =
-      TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 16.sp,
-        lineHeight = 21.sp,
-        letterSpacing = (-0.15).sp,
-      ),
-    // transcript() — .system(.body, weight: .regular)
-    bodyLarge =
-      TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 17.sp,
-        lineHeight = 24.sp,
-        letterSpacing = (-0.15).sp,
-      ),
-    // body() — .system(.subheadline, weight: .regular)
-    bodyMedium =
-      TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 15.sp,
-        lineHeight = 20.sp,
-        letterSpacing = (-0.1).sp,
-      ),
-    // callout() — .system(.footnote, weight: .regular)
-    bodySmall =
-      TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 13.sp,
-        lineHeight = 18.sp,
-        letterSpacing = 0.1.sp,
-      ),
-    // Button / prominent label — Material 3 labelLarge spec
-    labelLarge =
-      TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Medium,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        letterSpacing = 0.1.sp,
-      ),
-    // captionMedium() — .system(.caption, weight: .medium)
-    labelMedium =
-      TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Medium,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.2.sp,
-      ),
-    // caption() — .system(.caption, weight: .regular)
-    labelSmall =
-      TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.2.sp,
-      ),
+    displayLarge = ClinitexType.display(44.sp, 42.sp),
+    displayMedium = ClinitexType.display(34.sp, 33.sp),
+    displaySmall = ClinitexType.display(28.sp, 30.sp),
+    headlineLarge = ClinitexType.display(28.sp, 30.sp),
+    headlineMedium = ClinitexType.display(24.sp, 26.sp),
+    headlineSmall = ClinitexType.display(20.sp, 22.sp),
+    titleLarge = ClinitexType.body(20.sp, FontWeight.Bold, 26.sp),
+    titleMedium = ClinitexType.body(16.sp, FontWeight.Bold, 22.sp),
+    titleSmall = ClinitexType.body(14.sp, FontWeight.Bold, 20.sp),
+    bodyLarge = ClinitexType.body(16.sp, FontWeight.Normal, 24.sp),
+    bodyMedium = ClinitexType.body(15.sp, FontWeight.Normal, 22.sp),
+    bodySmall = ClinitexType.body(13.sp, FontWeight.Normal, 19.sp),
+    labelLarge = ClinitexType.body(15.sp, FontWeight.Bold, 20.sp),
+    labelMedium = ClinitexType.body(13.sp, FontWeight.Medium, 18.sp),
+    labelSmall = ClinitexType.body(12.sp, FontWeight.Medium, 16.sp),
   )

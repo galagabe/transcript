@@ -1,29 +1,33 @@
 package com.phequals7.muesli.ui.onboarding
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.phequals7.muesli.R
+import com.phequals7.muesli.theme.ClinitexPalette
+import com.phequals7.muesli.theme.ClinitexType
 import com.phequals7.muesli.theme.MuesliCorners
-import com.phequals7.muesli.theme.MuesliSpacing
-import com.phequals7.muesli.theme.MuesliTheme
+import com.phequals7.muesli.ui.components.BrandCard
+import com.phequals7.muesli.ui.components.DisplayTitle
+import com.phequals7.muesli.ui.components.Eyebrow
+import com.phequals7.muesli.ui.components.PillButton
+import com.phequals7.muesli.ui.components.PillVariant
+import com.phequals7.muesli.ui.components.ScreenBackground
 
 /** Ordered onboarding steps: welcome → permissions → model download → done. */
 enum class OnboardingStep(val title: String) {
@@ -33,7 +37,7 @@ enum class OnboardingStep(val title: String) {
     DONE("C’est prêt"),
 }
 
-/** Shared page chrome: progress capsule, title, subtitle, content, footer. */
+/** Page chrome for steps 2–4: progress, eyebrow, uppercase title, content, pill footer. */
 @Composable
 internal fun OnboardingPage(
     step: OnboardingStep,
@@ -44,195 +48,100 @@ internal fun OnboardingPage(
     primaryLabel: String,
     primaryEnabled: Boolean,
     onPrimary: () -> Unit,
-    skipLabel: String? = null,
-    onSkip: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val colors = MuesliTheme.colors
+    ScreenBackground(ClinitexPalette.Paper)
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(colors.backgroundDeep)
-            .padding(MuesliSpacing.s24),
+            .background(ClinitexPalette.Paper)
+            .padding(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 24.dp),
     ) {
-        // Progress capsule (iOS progress header parity)
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(MuesliSpacing.s8),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            LinearProgressIndicator(
-                progress = { (stepIndex + 1).toFloat() / stepCount },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp)),
-                color = colors.accent,
-                trackColor = colors.surfacePrimary,
-            )
-            Text(
-                "${stepIndex + 1} sur $stepCount",
-                color = colors.textTertiary,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium,
-            )
-        }
-
-        Spacer(modifier = Modifier.height(MuesliSpacing.s24))
-
-        Text(
-            step.title,
-            color = colors.textPrimary,
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = (-0.5).sp,
+        LinearProgressIndicator(
+            progress = { (stepIndex + 1).toFloat() / stepCount },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(4.dp)
+                .clip(CircleShape),
+            color = ClinitexPalette.Blue,
+            trackColor = ClinitexPalette.Line,
+            drawStopIndicator = {},
         )
+
+        Spacer(modifier = Modifier.height(28.dp))
+        Eyebrow("Étape ${stepIndex + 1} sur $stepCount", withBar = true, tracking = 0.14f)
+        Spacer(modifier = Modifier.height(10.dp))
+        DisplayTitle(step.title, size = 30.sp, lineHeight = 31.sp)
         Text(
             subtitle,
-            color = colors.textSecondary,
-            fontSize = 14.sp,
-            lineHeight = 20.sp,
-            modifier = Modifier.padding(top = MuesliSpacing.s4),
+            style = ClinitexType.body(15.sp, FontWeight.Normal, 23.sp),
+            color = ClinitexPalette.InkSoft,
+            modifier = Modifier.padding(top = 10.dp),
         )
 
-        Spacer(modifier = Modifier.height(MuesliSpacing.s20))
+        Spacer(modifier = Modifier.height(22.dp))
 
         Column(
             modifier = Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(MuesliSpacing.s12),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
             content = content,
         )
 
-        if (skipLabel != null && onSkip != null) {
-            TextButton(onClick = onSkip, modifier = Modifier.fillMaxWidth()) {
-                Text(skipLabel, color = colors.textSecondary, fontSize = 14.sp)
-            }
-        }
-        Button(
+        Spacer(modifier = Modifier.height(12.dp))
+        PillButton(
+            primaryLabel,
             onClick = onPrimary,
             enabled = primaryEnabled,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = colors.accent,
-                disabledContainerColor = colors.accent.copy(alpha = 0.3f),
-            ),
-            shape = RoundedCornerShape(MuesliCorners.medium),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp),
-        ) {
-            Text(primaryLabel, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-        }
+            height = 54.dp,
+            fontSize = 16.sp,
+            modifier = Modifier.fillMaxWidth(),
+        )
         if (onBack != null) {
-            TextButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
-                Text("Retour", color = colors.textTertiary, fontSize = 13.sp)
-            }
+            Spacer(modifier = Modifier.height(10.dp))
+            PillButton(
+                "Retour",
+                onClick = onBack,
+                variant = PillVariant.OUTLINE,
+                height = 46.dp,
+                fontSize = 14.sp,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
-    }
-}
-
-/** Brand header reused on the welcome page. */
-@Composable
-internal fun OnboardingBrandHeader() {
-    val colors = MuesliTheme.colors
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Image(
-            painter = painterResource(id = R.drawable.ic_muesli_logo),
-            contentDescription = "Logo de l’application",
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .size(64.dp)
-                .clip(RoundedCornerShape(MuesliCorners.large)),
-        )
-        Spacer(modifier = Modifier.height(MuesliSpacing.s8))
-        Text(
-            "Clindy",
-            color = colors.textPrimary,
-            fontSize = 26.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = (-0.5).sp,
-        )
-        Text(
-            "Comptes rendus de réunion, transcrits sur votre téléphone.",
-            color = colors.textSecondary,
-            fontSize = 13.sp,
-        )
     }
 }
 
 /** Card container matching the settings cards. */
 @Composable
 internal fun OnboardingCard(content: @Composable ColumnScope.() -> Unit) {
-    val colors = MuesliTheme.colors
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(MuesliCorners.medium))
-            .background(colors.backgroundRaised)
-            .border(1.dp, colors.surfaceBorder, RoundedCornerShape(MuesliCorners.medium))
-            .padding(MuesliSpacing.s16),
-        verticalArrangement = Arrangement.spacedBy(MuesliSpacing.s12),
-        content = content,
-    )
+    BrandCard(padding = PaddingValues(16.dp), spacing = 12.dp, content = content)
 }
 
-/** Selectable option row. */
+/** 40dp icon tile: paper-tint with blue icon, mint with ink check once done. */
 @Composable
-internal fun OnboardingChoiceRow(
-    title: String,
-    subtitle: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    val colors = MuesliTheme.colors
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(MuesliCorners.small))
-            .background(if (selected) colors.accentSubtle else androidx.compose.ui.graphics.Color.Transparent)
-            .border(
-                1.dp,
-                if (selected) colors.accent else colors.surfaceBorder,
-                RoundedCornerShape(MuesliCorners.small),
-            )
-            .clickable { onClick() }
-            .padding(MuesliSpacing.s12),
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                title,
-                color = if (selected) colors.accent else colors.textPrimary,
-                fontSize = 14.sp,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            )
-            Text(subtitle, color = colors.textSecondary, fontSize = 11.sp)
-        }
-        if (selected) {
-            Icon(Icons.Default.Check, contentDescription = null, tint = colors.accent, modifier = Modifier.size(18.dp))
-        }
-    }
-}
-
-/** Status icon tile (granted = green check). */
-@Composable
-internal fun OnboardingStatusTile(done: Boolean, icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    val colors = MuesliTheme.colors
+internal fun OnboardingStatusTile(done: Boolean, icon: ImageVector) {
     Box(
         modifier = Modifier
-            .size(36.dp)
-            .clip(RoundedCornerShape(MuesliCorners.small))
-            .background(if (done) colors.syncGreenSubtle else colors.surfacePrimary),
+            .size(40.dp)
+            .clip(RoundedCornerShape(MuesliCorners.tile))
+            .background(if (done) ClinitexPalette.Mint else ClinitexPalette.PaperTint),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = if (done) Icons.Default.Check else icon,
             contentDescription = null,
-            tint = if (done) colors.syncGreen else colors.textPrimary,
+            tint = if (done) ClinitexPalette.Ink else ClinitexPalette.Blue,
+            modifier = Modifier.size(20.dp),
         )
+    }
+}
+
+/** Feature line of the welcome screen: soft icon tile + sentence. */
+@Composable
+internal fun FeatureRow(icon: ImageVector, text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        OnboardingStatusTile(done = false, icon = icon)
+        Text(text, style = ClinitexType.body(15.sp, FontWeight.Normal, 21.sp), color = ClinitexPalette.Ink)
     }
 }

@@ -5,34 +5,61 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.outlined.CloudOff
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.phequals7.muesli.R
 import com.phequals7.muesli.data.SharedStore
 import com.phequals7.muesli.model.ModelManager
 import com.phequals7.muesli.model.SpeechModels
-import com.phequals7.muesli.theme.MuesliCorners
-import com.phequals7.muesli.theme.MuesliSpacing
-import com.phequals7.muesli.theme.MuesliTheme
+import com.phequals7.muesli.theme.ClinitexPalette
+import com.phequals7.muesli.theme.ClinitexType
+import com.phequals7.muesli.ui.components.Eyebrow
+import com.phequals7.muesli.ui.components.NoticeBox
+import com.phequals7.muesli.ui.components.NoticeTone
+import com.phequals7.muesli.ui.components.PillButton
+import com.phequals7.muesli.ui.components.PillVariant
+import com.phequals7.muesli.ui.components.ScreenBackground
+import com.phequals7.muesli.ui.components.StatusBadge
+import com.phequals7.muesli.ui.components.brandUpper
+import com.phequals7.muesli.ui.dashboard.BadgeTone
 import kotlinx.coroutines.launch
 
 /**
- * Multi-step onboarding: Welcome (optional name) → Permissions (microphone,
+ * Multi-step onboarding: Welcome (Main.dc.html) → Permissions (microphone,
  * notifications) → Speech model download (Parakeet v3) → Done.
+ * The optional first name moved to Réglages › À propos (not on the welcome mockup).
  */
 @Composable
 fun OnboardingScreen(
@@ -46,10 +73,7 @@ fun OnboardingScreen(
     var stepIndex by remember { mutableIntStateOf(0) }
     val step = steps[stepIndex]
 
-    var profileName by remember { mutableStateOf(store.userProfileName) }
-
     fun finish() {
-        store.userProfileName = profileName.trim()
         store.isOnboardingCompleted = true
         onFinished()
     }
@@ -59,11 +83,7 @@ fun OnboardingScreen(
 
     Box(modifier = modifier) {
         when (step) {
-            OnboardingStep.WELCOME -> WelcomeStep(
-                stepIndex = stepIndex, stepCount = steps.size, onBack = onBack,
-                name = profileName, onNameChange = { profileName = it },
-                onNext = onNext,
-            )
+            OnboardingStep.WELCOME -> WelcomeStep(onNext = onNext)
             OnboardingStep.PERMISSIONS -> PermissionsStep(
                 stepIndex = stepIndex, stepCount = steps.size, onBack = onBack, onNext = onNext,
             )
@@ -80,38 +100,108 @@ fun OnboardingScreen(
 // ── 1. Welcome ──────────────────────────────────────────────────────────
 
 @Composable
-private fun WelcomeStep(
-    stepIndex: Int, stepCount: Int, onBack: (() -> Unit)?,
-    name: String, onNameChange: (String) -> Unit,
-    onNext: () -> Unit,
-) {
-    val colors = MuesliTheme.colors
-    OnboardingPage(
-        step = OnboardingStep.WELCOME, stepIndex = stepIndex, stepCount = stepCount,
-        subtitle = "Avec Clindy, enregistrez vos rendez-vous et réunions : la transcription se fait sur le téléphone, le compte rendu est généré dès que vous avez du réseau.",
-        onBack = onBack,
-        primaryLabel = "Continuer",
-        primaryEnabled = true,
-        onPrimary = onNext,
+private fun WelcomeStep(onNext: () -> Unit) {
+    ScreenBackground(ClinitexPalette.Paper)
+    val strokePx = with(LocalDensity.current) { 2.dp.toPx() }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(ClinitexPalette.Paper)
     ) {
-        OnboardingBrandHeader()
-        OnboardingCard {
-            Text("Votre prénom (facultatif)", color = colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            TextField(
-                value = name,
-                onValueChange = onNameChange,
-                placeholder = { Text("Ex. : Camille", color = colors.textTertiary) },
-                singleLine = true,
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = colors.surfacePrimary,
-                    unfocusedContainerColor = colors.surfacePrimary,
-                    focusedTextColor = colors.textPrimary,
-                    unfocusedTextColor = colors.textPrimary,
-                    cursorColor = colors.accent,
-                    focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                    unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                ),
-                shape = RoundedCornerShape(MuesliCorners.medium),
+        // Mint half disc on the right edge (brand shape, flat color).
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val d = 260.dp.toPx()
+            drawArc(
+                color = ClinitexPalette.Mint,
+                startAngle = 90f,
+                sweepAngle = 180f,
+                useCenter = true,
+                topLeft = Offset(size.width - d / 2f, size.height - 120.dp.toPx() - d),
+                size = Size(d, d),
+            )
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 28.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    // Official logo, used as is (light background only).
+                    Image(
+                        painter = painterResource(id = R.drawable.logo_clinitex),
+                        contentDescription = "Clinitex, Engagés au sens propre",
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .width(132.dp)
+                            .aspectRatio(2500f / 987f),
+                    )
+                    Spacer(Modifier.weight(1f))
+                    Eyebrow("Appli interne", color = ClinitexPalette.Muted, size = 11.sp)
+                }
+
+                Spacer(Modifier.height(56.dp))
+
+                Image(
+                    painter = painterResource(id = R.drawable.ic_muesli_logo),
+                    contentDescription = "Icône de l’application Clindy",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(88.dp)
+                        .clip(RoundedCornerShape(22.dp)),
+                )
+                Spacer(Modifier.height(22.dp))
+                Eyebrow("Clindy", withBar = true, tracking = 0.14f)
+                Spacer(Modifier.height(22.dp))
+                Text(
+                    "Vos réunions,".brandUpper(),
+                    style = ClinitexType.display(44.sp, 42.sp),
+                    color = ClinitexPalette.Blue,
+                )
+                // Outlined second line (CSS -webkit-text-stroke equivalent).
+                Text(
+                    "Résumées.".brandUpper(),
+                    style = ClinitexType.display(44.sp, 42.sp).copy(
+                        drawStyle = Stroke(width = strokePx, join = StrokeJoin.Round),
+                    ),
+                    color = ClinitexPalette.Blue,
+                )
+                Spacer(Modifier.height(22.dp))
+                Text(
+                    "Enregistrez vos rendez-vous et réunions. La transcription se fait sur le téléphone, le compte rendu arrive dès que vous avez du réseau.",
+                    style = ClinitexType.body(16.sp, FontWeight.Normal, 25.sp),
+                    color = ClinitexPalette.InkSoft,
+                    modifier = Modifier.widthIn(max = 320.dp),
+                )
+
+                Spacer(Modifier.height(32.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    FeatureRow(Icons.Outlined.Mic, "Un bouton pour enregistrer, même sans réseau")
+                    FeatureRow(Icons.Outlined.Lock, "L’audio reste sur le téléphone")
+                    FeatureRow(Icons.Outlined.Description, "Un compte rendu clair, prêt à partager")
+                }
+                Spacer(Modifier.height(24.dp))
+            }
+
+            PillButton(
+                "Commencer",
+                onClick = onNext,
+                height = 54.dp,
+                fontSize = 16.sp,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "Basé sur Muesli pour Android, licence MIT",
+                style = ClinitexType.body(12.sp, FontWeight.Normal, 18.sp),
+                color = ClinitexPalette.Muted,
+                textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -153,7 +243,7 @@ private fun PermissionsStep(
         PermissionCard(
             icon = Icons.Default.Mic,
             title = "Accès au micro",
-            status = if (micGranted) "Autorisé" else "Obligatoire pour enregistrer les réunions",
+            status = if (micGranted) "Autorisé" else "Obligatoire pour enregistrer les réunions et les vocaux",
             granted = micGranted,
             onGrant = { micLauncher.launch(Manifest.permission.RECORD_AUDIO) },
         )
@@ -177,31 +267,19 @@ private fun PermissionCard(
     granted: Boolean,
     onGrant: () -> Unit,
 ) {
-    val colors = MuesliTheme.colors
     OnboardingCard {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(MuesliSpacing.s12),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
             OnboardingStatusTile(done = granted, icon = icon)
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, color = colors.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                Text(
-                    status,
-                    color = if (granted) colors.syncGreen else colors.textSecondary,
-                    fontSize = 11.sp,
-                )
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(title, style = ClinitexType.body(15.sp, FontWeight.Bold, 20.sp), color = ClinitexPalette.Ink)
+                Text(status, style = ClinitexType.body(12.sp, FontWeight.Normal, 17.sp), color = ClinitexPalette.Muted)
             }
             if (!granted) {
-                Button(
-                    onClick = onGrant,
-                    colors = ButtonDefaults.buttonColors(containerColor = colors.accent),
-                    shape = RoundedCornerShape(MuesliCorners.medium),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                ) {
-                    Text("Autoriser", fontSize = 12.sp)
-                }
+                PillButton("Autoriser", onClick = onGrant, height = 38.dp, fontSize = 13.sp)
             }
         }
     }
@@ -214,7 +292,6 @@ private fun ModelStep(
     stepIndex: Int, stepCount: Int, onBack: (() -> Unit)?, onNext: () -> Unit,
 ) {
     val context = LocalContext.current
-    val colors = MuesliTheme.colors
     val scope = rememberCoroutineScope()
 
     // Single-model catalog: Parakeet v3 (multilingual, required for French).
@@ -235,47 +312,56 @@ private fun ModelStep(
         onPrimary = onNext,
     ) {
         OnboardingCard {
-            Text(model.displayName, color = colors.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            Text(model.capabilityLabel, color = colors.accent, fontSize = 11.sp, fontWeight = FontWeight.Medium)
-            Text(model.detail, color = colors.textSecondary, fontSize = 11.sp, lineHeight = 15.sp)
+            Text(model.displayName, style = ClinitexType.body(15.sp, FontWeight.Bold, 20.sp), color = ClinitexPalette.Ink)
+            Text(model.capabilityLabel, style = ClinitexType.body(12.sp, FontWeight.Medium, 16.sp), color = ClinitexPalette.Blue)
+            Text(model.detail, style = ClinitexType.body(13.sp, FontWeight.Normal, 19.sp), color = ClinitexPalette.InkSoft)
         }
 
         OnboardingCard {
-            Text(
-                when {
-                    downloaded -> "Le modèle est prêt"
-                    downloading && progress?.extracting == true -> "Extraction…"
-                    downloading && progress != null ->
-                        "${(progress!!.fraction * 100).toInt()} % · ${manager.formatBytes(progress!!.totalBytesDone)} sur ${manager.formatBytes(progress!!.totalBytes)}"
-                    else -> "Téléchargement unique nécessaire"
-                },
-                color = if (downloaded) colors.syncGreen else colors.textPrimary,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
+            if (downloaded) {
+                StatusBadge("Le modèle est prêt", BadgeTone.READY, withCheck = true)
+            } else {
+                Text(
+                    when {
+                        downloading && progress?.extracting == true -> "Extraction…"
+                        downloading && progress != null ->
+                            "${(progress!!.fraction * 100).toInt()} % · ${manager.formatBytes(progress!!.totalBytesDone)} sur ${manager.formatBytes(progress!!.totalBytes)}"
+                        else -> "Téléchargement unique nécessaire"
+                    },
+                    style = ClinitexType.body(14.sp, FontWeight.Bold, 20.sp),
+                    color = ClinitexPalette.Ink,
+                )
+            }
             if (downloading && progress != null) {
                 LinearProgressIndicator(
                     progress = { progress!!.fraction },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp)),
-                    color = colors.accent,
-                    trackColor = colors.surfacePrimary,
+                        .clip(CircleShape),
+                    color = ClinitexPalette.Blue,
+                    trackColor = ClinitexPalette.Line,
+                    drawStopIndicator = {},
                 )
             }
-            error?.let { Text(it, color = colors.destructive, fontSize = 11.sp) }
+            error?.let { NoticeBox(it, NoticeTone.DANGER) }
             if (!downloaded) {
                 if (downloading) {
-                    TextButton(onClick = {
-                        downloadJob?.cancel()
-                        downloading = false
-                        progress = null
-                    }) {
-                        Text("Annuler le téléchargement", color = colors.textSecondary)
-                    }
+                    PillButton(
+                        "Annuler le téléchargement",
+                        onClick = {
+                            downloadJob?.cancel()
+                            downloading = false
+                            progress = null
+                        },
+                        variant = PillVariant.OUTLINE,
+                        height = 46.dp,
+                        fontSize = 14.sp,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 } else {
-                    Button(
+                    PillButton(
+                        if (manager.downloadedBytes() > 0) "Reprendre le téléchargement" else "Télécharger le modèle",
                         onClick = {
                             error = null
                             downloading = true
@@ -292,15 +378,10 @@ private fun ModelStep(
                                 }
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = colors.accent),
-                        shape = RoundedCornerShape(MuesliCorners.medium),
+                        height = 46.dp,
+                        fontSize = 14.sp,
                         modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(
-                            if (manager.downloadedBytes() > 0) "Reprendre le téléchargement" else "Télécharger le modèle",
-                            fontSize = 14.sp,
-                        )
-                    }
+                    )
                 }
             }
         }
@@ -315,9 +396,9 @@ private fun DoneStep(
 ) {
     OnboardingPage(
         step = OnboardingStep.DONE, stepIndex = stepIndex, stepCount = stepCount,
-        subtitle = "Vous pouvez enregistrer votre première réunion.",
+        subtitle = "Vous pouvez enregistrer votre première réunion ou dicter un premier vocal.",
         onBack = onBack,
-        primaryLabel = "Commencer",
+        primaryLabel = "Accéder à Clindy",
         primaryEnabled = true,
         onPrimary = onNext,
     ) {
@@ -327,7 +408,7 @@ private fun DoneStep(
             detail = "Informez les participants, puis lancez l’enregistrement depuis l’onglet Réunions.",
         )
         DoneRow(
-            icon = Icons.Default.CloudDownload,
+            icon = Icons.Outlined.CloudOff,
             title = "Transcription locale",
             detail = "Le texte et les intervenants sont produits sur le téléphone, même sans réseau.",
         )
@@ -341,17 +422,16 @@ private fun DoneStep(
 
 @Composable
 private fun DoneRow(icon: ImageVector, title: String, detail: String) {
-    val colors = MuesliTheme.colors
     OnboardingCard {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(MuesliSpacing.s12),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
             OnboardingStatusTile(done = false, icon = icon)
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, color = colors.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                Text(detail, color = colors.textSecondary, fontSize = 11.sp, lineHeight = 15.sp)
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(title, style = ClinitexType.body(15.sp, FontWeight.Bold, 20.sp), color = ClinitexPalette.Ink)
+                Text(detail, style = ClinitexType.body(13.sp, FontWeight.Normal, 19.sp), color = ClinitexPalette.Muted)
             }
         }
     }

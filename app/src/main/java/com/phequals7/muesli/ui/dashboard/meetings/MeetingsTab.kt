@@ -13,19 +13,17 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Groups
-import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.WifiOff
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -37,43 +35,53 @@ import com.phequals7.muesli.meetings.MeetingRecordingController
 import com.phequals7.muesli.meetings.MeetingTemplate
 import com.phequals7.muesli.model.ModelManager
 import com.phequals7.muesli.model.SpeechModels
+import com.phequals7.muesli.theme.ClinitexPalette
+import com.phequals7.muesli.theme.ClinitexType
 import com.phequals7.muesli.theme.MuesliCorners
-import com.phequals7.muesli.theme.MuesliSpacing
-import com.phequals7.muesli.theme.MuesliTheme
-import com.phequals7.muesli.ui.components.MuesliElapsedBadge
-import com.phequals7.muesli.ui.components.MuesliInlineWaveform
-import com.phequals7.muesli.ui.components.MuesliWaveformMode
-import com.phequals7.muesli.ui.components.MuesliSurfaceCard
+import com.phequals7.muesli.ui.components.BrandCard
+import com.phequals7.muesli.ui.components.BrandInput
+import com.phequals7.muesli.ui.components.EmptyState
+import com.phequals7.muesli.ui.components.Eyebrow
+import com.phequals7.muesli.ui.components.FieldLabel
+import com.phequals7.muesli.ui.components.IconTile
+import com.phequals7.muesli.ui.components.NoticeBox
+import com.phequals7.muesli.ui.components.NoticeTone
+import com.phequals7.muesli.ui.components.PillButton
+import com.phequals7.muesli.ui.components.ScreenBackground
+import com.phequals7.muesli.ui.components.ScreenHeader
+import com.phequals7.muesli.ui.components.StatusBadge
+import com.phequals7.muesli.ui.components.TileStyle
+import com.phequals7.muesli.ui.components.brandUpper
+import com.phequals7.muesli.ui.dashboard.DisplayFormat
+import com.phequals7.muesli.ui.dashboard.SessionStatus
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
 
 /**
- * Meetings home — port of the muesli-ios MeetingsView:
- * start-a-new-meeting card (title + template), the live recording surface,
- * and searchable recent meetings with status badges.
+ * Meetings home (Reunions.dc.html): new-meeting card (title + template +
+ * pill "Démarrer l’enregistrement") and searchable recent meetings with
+ * status badges. Only RecordingSession.kind == "meeting" rows are listed.
  */
 @Composable
 fun MeetingsTab(
     store: SharedStore,
-    onNavigateToSettings: () -> Unit,
+    onOpenMeeting: (String) -> Unit,
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val colors = MuesliTheme.colors
 
     var meetings by remember { mutableStateOf(emptyList<RecordingSession>()) }
-    var selectedMeetingId by remember { mutableStateOf<String?>(null) }
-
     var titleInput by remember { mutableStateOf("") }
-    var selectedTemplate by remember { mutableStateOf(MeetingTemplate.fromId(store.defaultMeetingTemplate)) }
+    var selectedTemplate by remember { mutableStateOf(MeetingTemplate.meetingFromId(store.defaultMeetingTemplate)) }
     var searchQuery by remember { mutableStateOf("") }
 
     val modelReady = remember { ModelManager(context.applicationContext).isDownloaded() }
 
+    ScreenBackground(ClinitexPalette.PaperTint)
+
     LaunchedEffect(Unit) {
-        store.getRecordingSessionsFlow().collect { meetings = it.filter { s -> s.kind == "meeting" } }
+        store.getRecordingSessionsFlow(RecordingSession.KIND_MEETING).collect { meetings = it }
     }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -84,195 +92,115 @@ fun MeetingsTab(
         if (Build.VERSION.SDK_INT >= 33) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
-        val title = titleInput.ifBlank {
+        val title = titleInput.trim().ifBlank {
             "Réunion du ${SimpleDateFormat("d MMM 'à' HH:mm", Locale.FRENCH).format(Date())}"
         }
-        MeetingRecordingController.start(context, UUID.randomUUID().toString(), title, selectedTemplate.id)
+        MeetingRecordingController.start(
+            context, UUID.randomUUID().toString(), title, selectedTemplate.id, RecordingSession.KIND_MEETING
+        )
         titleInput = ""
     }
 
-    val selectedMeeting = selectedMeetingId?.let { id -> meetings.firstOrNull { it.id == id } }
-    if (selectedMeeting != null) {
-        MeetingDetailView(
-            store = store,
-            meeting = selectedMeeting,
-            onBack = { selectedMeetingId = null },
-            onDeleted = { selectedMeetingId = null }
-        )
-        return
+    val filtered = meetings.filter {
+        searchQuery.isBlank() ||
+            it.title.contains(searchQuery, ignoreCase = true) ||
+            it.manualNotes.contains(searchQuery, ignoreCase = true)
     }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(MuesliSpacing.s16),
-        verticalArrangement = Arrangement.spacedBy(MuesliSpacing.s16)
+        modifier = Modifier
+            .fillMaxSize()
+            .background(ClinitexPalette.PaperTint),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 16.dp),
     ) {
-        // ── Header ──────────────────────────────────────────────────────
-        item {
-            Column {
-                Text("Réunions", color = colors.textPrimary, fontSize = 28.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp)
-                Text("Enregistrer, annoter, relire.", color = colors.textSecondary, fontSize = 13.sp)
-            }
-        }
-
-        // ── Active recording surface ────────────────────────────────────
-        if (MeetingRecordingController.isActive) {
-            item {
-                ActiveMeetingCard(
-                    onStop = { MeetingRecordingController.stop(context) },
-                    onDiscard = { MeetingRecordingController.discard(context) },
-                )
-            }
-        }
+        item { ScreenHeader("Réunions") }
 
         // ── Start a new meeting ─────────────────────────────────────────
-        if (!MeetingRecordingController.isActive) {
-            item {
-                MuesliSurfaceCard {
-                    Column(
-                        modifier = Modifier.padding(MuesliSpacing.s16),
-                        verticalArrangement = Arrangement.spacedBy(MuesliSpacing.s12)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(MuesliSpacing.s12)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(RoundedCornerShape(MuesliCorners.small))
-                                    .background(colors.brandBlueSubtle),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.Mic, contentDescription = null, tint = colors.accent)
-                            }
-                            Text(
-                                "Nouvelle réunion",
-                                color = colors.accent,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-
-                        TextField(
-                            value = titleInput,
-                            onValueChange = { titleInput = it },
-                            placeholder = { Text("Titre de la réunion", color = colors.textTertiary) },
-                            singleLine = true,
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = colors.surfacePrimary,
-                                unfocusedContainerColor = colors.surfacePrimary,
-                                focusedTextColor = colors.textPrimary,
-                                unfocusedTextColor = colors.textPrimary,
-                                cursorColor = colors.accent,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent
-                            ),
-                            shape = RoundedCornerShape(MuesliCorners.medium),
-                            // Title is the first field, but the keyboard only
-                            // opens on an explicit tap (user feedback)
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        TemplatePicker(
-                            selected = selectedTemplate,
-                            onSelected = { selectedTemplate = it }
-                        )
-
-                        if (!modelReady) {
-                            Text(
-                                "Le modèle ${SpeechModels.selected(context).shortName} est nécessaire : téléchargez-le d’abord dans Réglages.",
-                                color = colors.destructive,
-                                fontSize = 11.sp
-                            )
-                        }
-
-                        Button(
-                            onClick = { startMeeting() },
-                            enabled = modelReady,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = colors.accent,
-                                disabledContainerColor = colors.accent.copy(alpha = 0.3f)
-                            ),
-                            shape = RoundedCornerShape(MuesliCorners.medium),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp)
-                        ) {
-                            Icon(Icons.Default.Mic, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(MuesliSpacing.s8))
-                            Text("Démarrer l’enregistrement", fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
+        item {
+            BrandCard(modifier = Modifier.padding(top = 18.dp)) {
+                Eyebrow("Nouvelle réunion")
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FieldLabel("Titre")
+                    BrandInput(
+                        value = titleInput,
+                        onValueChange = { titleInput = it },
+                        placeholder = "Ex. : RDV Résidence Les Tilleuls",
+                    )
                 }
+                TemplatePicker(
+                    selected = selectedTemplate,
+                    onSelected = { selectedTemplate = it }
+                )
+                if (!modelReady) {
+                    NoticeBox(
+                        "Le modèle ${SpeechModels.selected(context).shortName} est nécessaire : téléchargez-le d’abord dans Réglages.",
+                        NoticeTone.WARNING,
+                    )
+                }
+                PillButton(
+                    text = "Démarrer l’enregistrement",
+                    onClick = { startMeeting() },
+                    enabled = modelReady,
+                    icon = Icons.Default.Mic,
+                    fontSize = 16.sp,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
 
         // ── Recent meetings ─────────────────────────────────────────────
         item {
-            Column {
-                Text("Réunions récentes", color = colors.textPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.3).sp)
-                Text(if (meetings.size > 1) "${meetings.size} enregistrées" else "${meetings.size} enregistrée", color = colors.textSecondary, fontSize = 12.sp)
+            Row(
+                verticalAlignment = Alignment.Bottom,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 22.dp),
+            ) {
+                Text(
+                    "Réunions récentes".brandUpper(),
+                    style = ClinitexType.display(16.sp, 18.sp),
+                    color = ClinitexPalette.Blue,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    DisplayFormat.savedCount(meetings.size, feminine = true),
+                    style = ClinitexType.body(13.sp, FontWeight.Normal, 18.sp),
+                    color = ClinitexPalette.Muted,
+                )
             }
         }
 
         item {
-            TextField(
+            BrandInput(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = { Text("Rechercher une réunion", color = colors.textTertiary) },
-                leadingIcon = {
-                    Icon(Icons.Default.Search, contentDescription = null, tint = colors.textTertiary, modifier = Modifier.size(18.dp))
-                },
-                singleLine = true,
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = colors.surfacePrimary,
-                    unfocusedContainerColor = colors.surfacePrimary,
-                    focusedTextColor = colors.textPrimary,
-                    unfocusedTextColor = colors.textPrimary,
-                    cursorColor = colors.accent,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent
-                ),
-                shape = RoundedCornerShape(MuesliCorners.medium),
-                modifier = Modifier.fillMaxWidth()
+                placeholder = "Rechercher une réunion",
+                leadingIcon = Icons.Default.Search,
+                shape = CircleShape,
+                modifier = Modifier.padding(top = 10.dp, bottom = 12.dp),
             )
-        }
-
-        val filtered = meetings.filter {
-            searchQuery.isBlank() ||
-                it.title.contains(searchQuery, ignoreCase = true) ||
-                it.manualNotes.contains(searchQuery, ignoreCase = true)
         }
 
         if (filtered.isEmpty()) {
             item {
-                MuesliSurfaceCard {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(MuesliSpacing.s24)
-                    ) {
-                        Icon(Icons.Default.Groups, contentDescription = null, tint = colors.textTertiary, modifier = Modifier.size(36.dp))
-                        Spacer(modifier = Modifier.height(MuesliSpacing.s8))
-                        Text(
-                            if (meetings.isEmpty()) "Aucune réunion enregistrée" else "Aucun résultat",
-                            color = colors.textPrimary,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp
-                        )
-                        if (meetings.isEmpty()) {
-                            Text("Démarrez une réunion ci-dessus pour l’enregistrer.", color = colors.textSecondary, fontSize = 12.sp)
-                        }
-                    }
-                }
+                EmptyState(
+                    icon = Icons.Outlined.Groups,
+                    title = if (meetings.isEmpty()) "Aucune réunion enregistrée" else "Aucun résultat",
+                    detail = if (meetings.isEmpty()) "Démarrez une réunion ci-dessus pour l’enregistrer." else null,
+                )
             }
         } else {
             items(filtered, key = { it.id }) { meeting ->
-                MeetingRow(
-                    meeting = meeting,
-                    onClick = { selectedMeetingId = meeting.id }
+                SessionRow(
+                    session = meeting,
+                    icon = Icons.Outlined.Description,
+                    meta = listOfNotNull(
+                        DisplayFormat.dayMonthTime(meeting.startedAt ?: meeting.createdAt),
+                        DisplayFormat.minutes(meeting.startedAt, meeting.endedAt),
+                        MeetingTemplate.fromId(meeting.templateId).label,
+                    ).joinToString(" · "),
+                    onClick = { onOpenMeeting(meeting.id) },
+                    modifier = Modifier.padding(bottom = 10.dp),
                 )
             }
         }
@@ -281,46 +209,50 @@ fun MeetingsTab(
 
 // ─────────────────────────── components ───────────────────────────
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TemplatePicker(
     selected: MeetingTemplate,
     onSelected: (MeetingTemplate) -> Unit,
 ) {
-    val colors = MuesliTheme.colors
     var expanded by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(MuesliCorners.input)
 
     Box {
         Row(
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(MuesliCorners.small))
-                .background(colors.surfacePrimary)
+                .clip(shape)
+                .background(ClinitexPalette.PaperTint)
+                .border(1.dp, ClinitexPalette.Line, shape)
                 .clickable { expanded = true }
-                .padding(MuesliSpacing.s12)
+                .padding(horizontal = 14.dp, vertical = 12.dp)
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(selected.label, color = colors.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                Text(selected.detail, color = colors.textSecondary, fontSize = 12.sp)
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(selected.label, style = ClinitexType.body(15.sp, FontWeight.Bold, 20.sp), color = ClinitexPalette.Ink)
+                Text(selected.detail, style = ClinitexType.body(12.sp, FontWeight.Normal, 17.sp), color = ClinitexPalette.Muted)
             }
             Icon(
-                Icons.Default.ArrowDropDown,
+                Icons.Default.ExpandMore,
                 contentDescription = "Choisir le modèle de compte rendu",
-                tint = colors.textSecondary
+                tint = ClinitexPalette.Blue,
+                modifier = Modifier.size(20.dp),
             )
         }
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            modifier = Modifier.background(colors.backgroundRaised)
+            containerColor = ClinitexPalette.Paper,
+            shape = RoundedCornerShape(MuesliCorners.input),
         ) {
-            MeetingTemplate.entries.forEach { template ->
+            // Voice-note template excluded: meetings only.
+            MeetingTemplate.meetingTemplates.forEach { template ->
                 DropdownMenuItem(
                     text = {
                         Column {
-                            Text(template.label, color = colors.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                            Text(template.detail, color = colors.textSecondary, fontSize = 11.sp)
+                            Text(template.label, style = ClinitexType.body(14.sp, FontWeight.Bold, 19.sp), color = ClinitexPalette.Ink)
+                            Text(template.detail, style = ClinitexType.body(12.sp, FontWeight.Normal, 16.sp), color = ClinitexPalette.Muted)
                         }
                     },
                     onClick = {
@@ -333,199 +265,51 @@ private fun TemplatePicker(
     }
 }
 
+/**
+ * List row shared by meetings and voice notes: icon tile (dashed when the
+ * summary waits for network), bold title, meta line, status badge.
+ */
 @Composable
-private fun ActiveMeetingCard(
-    onStop: () -> Unit,
-    onDiscard: () -> Unit,
-) {
-    val colors = MuesliTheme.colors
-
-    MuesliSurfaceCard {
-        Column(
-            modifier = Modifier.padding(MuesliSpacing.s20),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        MeetingRecordingController.meetingTitle,
-                        color = colors.textPrimary,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        if (MeetingRecordingController.isFinalizing) "Finalisation" else "Enregistrement en cours",
-                        color = if (MeetingRecordingController.isFinalizing) colors.transcribing else colors.accent,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-                MuesliElapsedBadge(
-                    elapsedSeconds = MeetingRecordingController.elapsedSeconds,
-                    color = colors.recording
-                )
-            }
-
-            // Waveform in raised container
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = MuesliSpacing.s16)
-                    .clip(RoundedCornerShape(MuesliCorners.large))
-                    .background(colors.surfacePrimary)
-                    .padding(vertical = MuesliSpacing.s16, horizontal = MuesliSpacing.s12)
-            ) {
-                MuesliInlineWaveform(
-                    mode = if (MeetingRecordingController.isFinalizing) MuesliWaveformMode.Waiting else MuesliWaveformMode.Level,
-                    color = colors.brandBlue,
-                    level = if (MeetingRecordingController.isFinalizing) null else MeetingRecordingController.inputLevel,
-                    barCount = 32,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                )
-                Spacer(modifier = Modifier.height(MuesliSpacing.s8))
-                Text(
-                    text = if (MeetingRecordingController.isFinalizing) "Transcription de l’audio restant" else "À l’écoute",
-                    color = colors.textSecondary,
-                    fontSize = 12.sp
-                )
-            }
-
-            // Stop + Discard
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(MuesliSpacing.s12),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(MuesliCorners.medium))
-                        .background(colors.destructiveSubtle)
-                        .border(1.dp, colors.destructive.copy(alpha = 0.35f), RoundedCornerShape(MuesliCorners.medium))
-                        .clickable(enabled = !MeetingRecordingController.isFinalizing) { onDiscard() }
-                        .padding(vertical = MuesliSpacing.s12)
-                ) {
-                    Icon(Icons.Default.Close, contentDescription = null, tint = colors.destructive, modifier = Modifier.size(15.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Abandonner", color = colors.destructive, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier
-                        .weight(2f)
-                        .clip(RoundedCornerShape(MuesliCorners.medium))
-                        .background(colors.destructive)
-                        .clickable(enabled = !MeetingRecordingController.isFinalizing) { onStop() }
-                        .padding(vertical = MuesliSpacing.s12)
-                ) {
-                    Icon(Icons.Default.Stop, contentDescription = null, tint = Color.White, modifier = Modifier.size(15.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        if (MeetingRecordingController.isFinalizing) "Finalisation…" else "Arrêter",
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun MeetingRow(
-    meeting: RecordingSession,
+internal fun SessionRow(
+    session: RecordingSession,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    meta: String,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    val colors = MuesliTheme.colors
-
-    val (badgeText, badgeColor) = when (meeting.phase) {
-        "completed" -> "Terminée" to colors.syncGreen
-        "recording" -> "En cours" to colors.accent
-        "transcribing" -> "Transcription" to colors.transcribing
-        "failed" -> "Échec" to colors.destructive
-        "cancelled" -> "Annulée" to colors.textTertiary
-        else -> meeting.phase to colors.textSecondary
-    }
-
-    val duration = if (meeting.startedAt != null && meeting.endedAt != null) {
-        val mins = (meeting.endedAt - meeting.startedAt) / 60_000L
-        if (mins >= 1) " · ${mins} min" else " · < 1 min"
-    } else ""
-
-    MuesliSurfaceCard {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(MuesliSpacing.s12),
-            modifier = Modifier
-                .clickable { onClick() }
-                .padding(MuesliSpacing.s16)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(MuesliCorners.small))
-                    .background(colors.brandBlueSubtle),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.Groups, contentDescription = null, tint = colors.accent)
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    meeting.title,
-                    color = colors.textPrimary,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    SimpleDateFormat("d MMM yyyy 'à' HH:mm", Locale.FRENCH).format(Date(meeting.createdAt)) + duration,
-                    color = colors.textSecondary,
-                    fontSize = 11.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                // iOS row-preview priority: summary first, then manual notes
-                val preview = when {
-                    meeting.summaryText.isNotBlank() -> meeting.summaryText.lineSequence().firstOrNull { it.isNotBlank() }?.removePrefix("#").orEmpty()
-                    meeting.manualNotes.isNotBlank() -> meeting.manualNotes.lineSequence().firstOrNull { it.isNotBlank() }.orEmpty()
-                    else -> ""
-                }
-                if (preview.isNotBlank()) {
-                    Text(
-                        preview.trim().take(80),
-                        color = colors.textTertiary,
-                        fontSize = 11.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                if (meeting.errorMessage != null) {
-                    Text(meeting.errorMessage, color = colors.destructive, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            }
+    val waiting = session.phase == "completed" && SessionStatus.isWaitingForNetwork(session.summaryState)
+    val shape = RoundedCornerShape(MuesliCorners.row)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(ClinitexPalette.Paper)
+            .border(1.dp, ClinitexPalette.Line, shape)
+            .clickable(onClick = onClick)
+            .padding(14.dp)
+    ) {
+        IconTile(
+            icon = if (waiting) Icons.Default.WifiOff else icon,
+            style = if (waiting) TileStyle.DASHED else TileStyle.FILLED,
+        )
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(
-                badgeText,
-                color = badgeColor,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(MuesliCorners.small))
-                    .background(badgeColor.copy(alpha = 0.13f))
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                session.title,
+                style = ClinitexType.body(15.sp, FontWeight.Bold, 20.sp),
+                color = ClinitexPalette.Ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
-            Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = colors.textTertiary)
+            Text(
+                meta,
+                style = ClinitexType.body(12.sp, FontWeight.Normal, 16.sp),
+                color = ClinitexPalette.Muted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
+        StatusBadge(SessionStatus.badge(session.phase, session.summaryState))
     }
 }

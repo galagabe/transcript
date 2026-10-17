@@ -64,6 +64,8 @@ fun MuesliInlineWaveform(
     isActive: Boolean = true,
     barCount: Int = 24,
     spacing: Dp = 3.dp,
+    /** Minimum bar height as a fraction of the height (keeps bars visible in silence). */
+    minFraction: Float = 0f,
 ) {
     // Monotonic clock driving bar motion, matching iOS TimelineView(.animation).
     var elapsed by remember { mutableFloatStateOf(0f) }
@@ -91,7 +93,7 @@ fun MuesliInlineWaveform(
                 MuesliWaveformMode.Level -> liveLevelSample(index, level, elapsed)
                 MuesliWaveformMode.Waiting -> waitingSample(index, elapsed)
             }
-            val minH = 1.5f
+            val minH = max(1.5f, size.height * minFraction)
             val height = min(size.height, max(minH, minH + (size.height - minH) * sample))
             val alpha = when (mode) {
                 MuesliWaveformMode.Level -> 0.94f

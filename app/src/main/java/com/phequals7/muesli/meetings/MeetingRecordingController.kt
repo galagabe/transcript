@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.phequals7.muesli.data.entity.RecordingSession
 
 /**
  * Shared state bridge between [MeetingRecorderService] (which owns the mic
@@ -18,6 +19,11 @@ object MeetingRecordingController {
     var activeSessionId by mutableStateOf<String?>(null)
         private set
     var meetingTitle by mutableStateOf("")
+        private set
+    /** RecordingSession.kind of the active capture (meeting or voice note). */
+    var kind by mutableStateOf(RecordingSession.KIND_MEETING)
+        private set
+    var templateId by mutableStateOf(MeetingTemplate.GENERAL.id)
         private set
     var isRecording by mutableStateOf(false)
         private set
@@ -33,13 +39,21 @@ object MeetingRecordingController {
         private set
 
     val isActive: Boolean get() = isRecording || isFinalizing
+    val isVoiceNote: Boolean get() = kind == RecordingSession.KIND_VOICE_NOTE
 
-    fun start(context: Context, sessionId: String, title: String, templateId: String) {
+    fun start(
+        context: Context,
+        sessionId: String,
+        title: String,
+        templateId: String,
+        kind: String = RecordingSession.KIND_MEETING,
+    ) {
         val intent = Intent(context, MeetingRecorderService::class.java)
             .setAction(MeetingRecorderService.ACTION_START)
             .putExtra(MeetingRecorderService.EXTRA_SESSION_ID, sessionId)
             .putExtra(MeetingRecorderService.EXTRA_TITLE, title)
             .putExtra(MeetingRecorderService.EXTRA_TEMPLATE_ID, templateId)
+            .putExtra(MeetingRecorderService.EXTRA_KIND, kind)
         context.startForegroundService(intent)
     }
 
@@ -59,9 +73,11 @@ object MeetingRecordingController {
 
     // ── Called by the service ──────────────────────────────────────────
 
-    fun onCaptureStarted(sessionId: String, title: String) {
+    fun onCaptureStarted(sessionId: String, title: String, kind: String, templateId: String) {
         activeSessionId = sessionId
         meetingTitle = title
+        this.kind = kind
+        this.templateId = templateId
         isRecording = true
         isFinalizing = false
         elapsedSeconds = 0

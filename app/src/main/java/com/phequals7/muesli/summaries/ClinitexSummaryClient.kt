@@ -125,8 +125,9 @@ class ClinitexSummaryClient(
         error: Throwable,
         manualNotes: String? = null,
     ): String = buildString {
-        append("## Synthèse impossible\n\nRéunion : ").append(meetingTitle)
-        append("\n\nLe compte rendu n'a pas pu être généré.\n\n")
+        // Shared by meetings and voice notes: wording stays neutral.
+        append("## Synthèse impossible\n\n").append(meetingTitle)
+        append("\n\nLe texte mis au propre n'a pas pu être généré.\n\n")
         append(error.message ?: "Erreur inconnue")
         if (!manualNotes.isNullOrBlank()) {
             append("\n\n## Notes saisies\n\n").append(manualNotes.trim())

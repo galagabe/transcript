@@ -10,20 +10,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PauseCircle
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PauseCircle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -32,12 +28,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.phequals7.muesli.R
 import com.phequals7.muesli.engine.SherpaRecognizerHolder
-import com.phequals7.muesli.theme.MuesliTheme
+import com.phequals7.muesli.theme.ClinitexPalette
+import com.phequals7.muesli.theme.ClinitexType
+import com.phequals7.muesli.ui.components.brandUpper
 
 /**
- * First-launch warmup screen, ported from muesli-ios LaunchWarmupView:
- * brand mark + gradient backdrop while the Parakeet model primes for
- * inference, status line with pulse, version footer. The caller dismisses
+ * Launch warm-up screen shown while the Parakeet model primes for inference:
+ * white page, app icon + CLINDY wordmark, status line with a flat blue pulse,
+ * official Clinitex logo and version at the bottom. The caller dismisses it
  * when the model is warm or after the 5-second display cap.
  */
 @Composable
@@ -46,72 +44,40 @@ fun LaunchWarmupScreen(
     modelName: String,
     versionText: String,
 ) {
-    val colors = MuesliTheme.colors
-
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.linearGradient(
-                    colors = listOf(Color(0xFF030711), Color(0xFF07111F), Color(0xFF02040A)),
-                    start = Offset.Zero,
-                    end = Offset.Infinite,
-                )
-            )
+            .background(ClinitexPalette.Paper)
+            .systemBarsPadding()
     ) {
-        // Subtle brand tint overlay (brandBlue top → syncGreen bottom)
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            colors.brandBlue.copy(alpha = 0.16f),
-                            Color.Transparent,
-                            colors.syncGreen.copy(alpha = 0.10f),
-                        )
-                    )
-                )
-        )
-
-        // Brand mark: official icon + wordmark (iOS: offset y −18)
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
             modifier = Modifier
                 .align(Alignment.Center)
                 .offset(y = (-18).dp)
         ) {
             Image(
                 painter = painterResource(id = R.drawable.ic_muesli_logo),
-                contentDescription = "Clindy",
+                contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .size(74.dp)
-                    .shadow(
-                        elevation = 24.dp,
-                        shape = RoundedCornerShape(16.dp),
-                        ambientColor = colors.brandBlue,
-                        spotColor = colors.brandBlue,
-                    )
-                    .clip(RoundedCornerShape(16.dp))
+                    .size(80.dp)
+                    .clip(RoundedCornerShape(20.dp))
             )
             Text(
-                "Clindy",
-                color = Color.White.copy(alpha = 0.94f),
-                fontSize = 34.sp,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = (-0.6).sp
+                "Clindy".brandUpper(),
+                style = ClinitexType.display(34.sp, 34.sp),
+                color = ClinitexPalette.Blue,
             )
         }
 
-        // Warmup status block (iOS: pinned 78dp above bottom)
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 78.dp, start = 20.dp, end = 20.dp)
+                .padding(bottom = 32.dp, start = 20.dp, end = 20.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -121,14 +87,14 @@ fun LaunchWarmupScreen(
                     Icon(
                         Icons.Default.PauseCircle,
                         contentDescription = null,
-                        tint = Color.White.copy(alpha = 0.68f),
+                        tint = ClinitexPalette.Muted,
                         modifier = Modifier.size(18.dp)
                     )
                 } else {
                     CircularProgressIndicator(
                         modifier = Modifier.size(16.dp),
                         strokeWidth = 2.dp,
-                        color = colors.syncGreen
+                        color = ClinitexPalette.Blue
                     )
                 }
                 Text(
@@ -137,8 +103,8 @@ fun LaunchWarmupScreen(
                         SherpaRecognizerHolder.WarmState.FAILED -> "Préchargement interrompu"
                         else -> "Préparation du moteur de transcription…"
                     },
-                    color = Color.White.copy(alpha = 0.68f),
-                    fontSize = 13.sp,
+                    style = ClinitexType.body(14.sp, FontWeight.Medium, 20.sp),
+                    color = ClinitexPalette.InkSoft,
                     textAlign = TextAlign.Center
                 )
             }
@@ -147,42 +113,39 @@ fun LaunchWarmupScreen(
                 isAnimating = warmState == SherpaRecognizerHolder.WarmState.WARMING,
                 modifier = Modifier
                     .width(176.dp)
-                    .height(3.dp)
+                    .height(4.dp)
             )
 
-            Text(
-                modelName,
-                color = Color.White.copy(alpha = 0.38f),
-                fontSize = 12.sp
+            Text(modelName, style = ClinitexType.body(12.sp), color = ClinitexPalette.Muted)
+
+            Spacer(Modifier.height(20.dp))
+            // Official logo, used as is (light background only).
+            Image(
+                painter = painterResource(id = R.drawable.logo_clinitex),
+                contentDescription = "Clinitex, Engagés au sens propre",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .width(120.dp)
+                    .aspectRatio(2500f / 987f),
             )
+            Text(versionText, style = ClinitexType.body(12.sp), color = ClinitexPalette.Muted)
         }
-
-        // Version footer (iOS: caption, white 0.24, 18dp above bottom)
-        Text(
-            versionText,
-            color = Color.White.copy(alpha = 0.24f),
-            fontSize = 12.sp,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 18.dp)
-        )
     }
 }
 
-/** Sliding gradient blob on a capsule track (iOS WarmupPulseLine). */
+/** Flat blue segment sliding on a line-colored capsule track (no gradient). */
 @Composable
 private fun WarmupPulseLine(
     isAnimating: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val colors = MuesliTheme.colors
     val transition = rememberInfiniteTransition(label = "warmup-pulse")
     val fraction by transition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
             animation = tween(durationMillis = 1150),
-            repeatMode = RepeatMode.Restart,
+            repeatMode = RepeatMode.Reverse,
         ),
         label = "warmup-pulse-fraction"
     )
@@ -192,23 +155,14 @@ private fun WarmupPulseLine(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White.copy(alpha = 0.10f))
+                .background(ClinitexPalette.Line)
         )
         Box(
             modifier = Modifier
                 .width(trackWidth * 0.36f)
                 .fillMaxHeight()
                 .offset(x = if (isAnimating) trackWidth * 0.64f * fraction else 0.dp)
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(
-                            colors.brandBlue.copy(alpha = 0.25f),
-                            colors.syncGreen,
-                            colors.brandBlue.copy(alpha = 0.25f),
-                        )
-                    ),
-                    shape = CircleShape
-                )
+                .background(ClinitexPalette.Blue, shape = CircleShape)
         )
     }
 }
