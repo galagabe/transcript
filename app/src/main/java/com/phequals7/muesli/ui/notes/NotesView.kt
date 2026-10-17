@@ -128,20 +128,25 @@ private fun inlineText(text: String): AnnotatedString = buildAnnotatedString {
 }
 
 /**
- * Transcript rendering: speaker turns ("Intervenant 1 · 0:04") as small bold
- * labels, odd speakers in blue and even ones in ink, text below. Selectable.
+ * Transcript rendering: speaker turns ("Intervenant 1 · 0:04", or the name
+ * given in [speakerNames]) as small bold labels, odd speakers in blue and
+ * even ones in ink and indented, text below. Selectable.
  */
 @Composable
-fun TranscriptView(transcript: String, modifier: Modifier = Modifier) {
+fun TranscriptView(transcript: String, modifier: Modifier = Modifier, speakerNames: Map<Int, String> = emptyMap()) {
     val blocks = remember(transcript) { TranscriptBlocks.parse(transcript) }
     SelectionContainer(modifier = modifier) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             blocks.forEach { block ->
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    if (block.speaker != null) {
-                        val odd = (block.speakerNumber ?: 1) % 2 == 1
+                val odd = (block.speakerNumber ?: 1) % 2 == 1
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.padding(start = if (odd) 0.dp else 14.dp),
+                ) {
+                    val label = TranscriptBlocks.label(block, speakerNames)
+                    if (label != null) {
                         Text(
-                            "${block.speaker} · ${block.time}",
+                            "$label · ${block.time}",
                             style = ClinitexType.body(12.sp, FontWeight.Bold, 16.sp),
                             color = if (odd) ClinitexPalette.Blue else ClinitexPalette.Ink,
                         )

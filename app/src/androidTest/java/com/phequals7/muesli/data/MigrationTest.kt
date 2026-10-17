@@ -5,6 +5,8 @@ import android.database.sqlite.SQLiteDatabase
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.phequals7.muesli.data.entity.SpeakerName
+import com.phequals7.muesli.data.entity.TranscriptSegment
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -99,7 +101,7 @@ class MigrationTest {
             .addMigrations(*AppDatabase.MIGRATIONS)
             .build()
 
-        // Opening the DB forces the migration chain v1 -> v4.
+        // Opening the DB forces the migration chain v1 -> latest.
         val results = runBlocking { db.dictationResultDao().getAllResults() }
         assertEquals(1, results.size)
         assertEquals("hello from v1", results[0].text)
@@ -112,6 +114,46 @@ class MigrationTest {
         assertEquals("", session.manualNotes)
         assertEquals("", session.summaryText) // MIGRATION_3_4 default
         assertEquals("notStarted", session.summaryState)
+
+        // MIGRATION_4_5: speaker tables exist, empty, and are usable.
+        val speakers = db.speakerDao()
+        runBlocking {
+            assertEquals(emptyList<TranscriptSegment>(), speakers.getSegments("s1"))
+            assertEquals(emptyList<SpeakerName>(), speakers.getSpeakerNames("s1"))
+            speakers.replaceSegments("s1", listOf(TranscriptSegment(sessionId = "s1", startSec = 0f, endSec = 4f, speaker = 1, text = "Bonjour")))
+            speakers.replaceSpeakerNames("s1", listOf(SpeakerName("s1", 1, "Commercial Clinitex"), SpeakerName("s1", 2, " ")))
+            assertEquals("Bonjour", speakers.getSegments("s1").single().text)
+            assertEquals(listOf(SpeakerName("s1", 1, "Commercial Clinitex")), speakers.getSpeakerNames("s1"))
+        }
+
+        db.close()
+    }
+
+    /** v4 database as shipped before lot 3 (all session columns), opened at the latest version. */
+    @Test
+    fun migrate4To5_keepsMeetingsAndAddsSpeakerTables() {
+        createV1Database()
+        SQLiteDatabase.openDatabase(context.getDatabasePath(dbName).path, null, SQLiteDatabase.OPEN_READWRITE).use { db ->
+            db.execSQL("ALTER TABLE dictation_results ADD COLUMN durationMs INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE recording_sessions ADD COLUMN templateId TEXT NOT NULL DEFAULT 'general'")
+            db.execSQL("ALTER TABLE recording_sessions ADD COLUMN manualNotes TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE recording_sessions ADD COLUMN summaryText TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE recording_sessions ADD COLUMN summaryState TEXT NOT NULL DEFAULT 'notStarted'")
+            db.execSQL("UPDATE recording_sessions SET templateId = 'rdvCommercial', summaryText = '## Synthèse', summaryState = 'completed' WHERE id = 's1'")
+            db.execSQL("INSERT INTO transcripts VALUES ('t1','s1','Intervenant 1 · 0:04\nBonjour',1700000000000,'parakeet')")
+            db.version = 4
+        }
+
+        val db = Room.databaseBuilder(context, AppDatabase::class.java, dbName)
+            .addMigrations(*AppDatabase.MIGRATIONS)
+            .build()
+
+        val session = runBlocking { db.recordingSessionDao().getSessionById("s1") }
+        assertEquals("rdvCommercial", session!!.templateId)
+        assertEquals("## Synthèse", session.summaryText)
+        assertEquals("completed", session.summaryState)
+        assertEquals("Intervenant 1 · 0:04\nBonjour", runBlocking { db.transcriptDao().getTranscriptForSession("s1") }!!.text)
+        assertEquals(emptyList<TranscriptSegment>(), runBlocking { db.speakerDao().getSegments("s1") })
 
         db.close()
     }

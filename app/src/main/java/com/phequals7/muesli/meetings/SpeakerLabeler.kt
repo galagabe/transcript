@@ -15,6 +15,9 @@ object SpeakerLabeler {
     /** One diarization segment: who spoke when (speaker ids count from 0). */
     data class SpeakerSegment(val startSec: Float, val endSec: Float, val speaker: Int)
 
+    /** A decoded chunk with its speaker number as displayed ("Intervenant N", from 1). */
+    data class LabeledText(val startSec: Float, val endSec: Float, val speaker: Int, val text: String)
+
     /** Speaker with the largest time overlap with [startSec, endSec), or null
      * when there is no overlap at all. */
     fun dominantSpeaker(startSec: Float, endSec: Float, segments: List<SpeakerSegment>): Int? {
@@ -31,10 +34,23 @@ object SpeakerLabeler {
     }
 
     /**
+     * Gives each chunk the speaker it overlaps most. A chunk with no
+     * overlapping diarization segment inherits the previous chunk's speaker;
+     * leading chunks without overlap take the first speaker found later.
+     * Numbers count from 1, as displayed.
+     */
+    fun assign(chunks: List<TimedText>, segments: List<SpeakerSegment>): List<LabeledText> {
+        val dominant = chunks.map { dominantSpeaker(it.startSec, it.endSec, segments) }
+        var current = dominant.firstOrNull { it != null } ?: 0
+        return chunks.mapIndexed { index, chunk ->
+            current = dominant[index] ?: current
+            LabeledText(chunk.startSec, chunk.endSec, current + 1, chunk.text)
+        }
+    }
+
+    /**
      * Renders chunks as a speaker-grouped transcript. Consecutive chunks from
-     * the same speaker merge under one heading; chunks with no overlapping
-     * diarization segment inherit the previous chunk's speaker (or are left
-     * unlabeled when first).
+     * the same speaker merge under one heading (speakers per [assign]).
      *
      * Example:
      *   Intervenant 1 · 0:04
@@ -43,25 +59,21 @@ object SpeakerLabeler {
      *   Intervenant 2 · 0:31
      *   Sounds good, two things…
      */
-    fun render(chunks: List<TimedText>, segments: List<SpeakerSegment>): String {
-        if (chunks.isEmpty()) return ""
+    fun render(chunks: List<TimedText>, segments: List<SpeakerSegment>): String =
+        render(assign(chunks, segments))
+
+    fun render(labeled: List<LabeledText>): String {
         val out = StringBuilder()
         var currentSpeaker: Int? = null
-        var firstBlock = true
-
-        for (chunk in chunks) {
-            var speaker = dominantSpeaker(chunk.startSec, chunk.endSec, segments)
-            if (speaker == null) speaker = currentSpeaker
-
-            if (speaker != currentSpeaker) {
-                if (!firstBlock) out.append("\n\n")
+        for (chunk in labeled) {
+            if (chunk.speaker != currentSpeaker) {
+                if (currentSpeaker != null) out.append("\n\n")
                 out.append("Intervenant ")
-                    .append((speaker ?: 0) + 1)
+                    .append(chunk.speaker)
                     .append(" · ")
                     .append(formatTime(chunk.startSec))
                     .append("\n")
-                currentSpeaker = speaker
-                firstBlock = false
+                currentSpeaker = chunk.speaker
             } else {
                 out.append("\n\n")
             }

@@ -24,6 +24,7 @@ import com.phequals7.muesli.audio.AudioInputRouteManager
 import com.phequals7.muesli.data.SharedStore
 import com.phequals7.muesli.data.entity.RecordingSession
 import com.phequals7.muesli.data.entity.Transcript
+import com.phequals7.muesli.data.entity.TranscriptSegment
 import com.phequals7.muesli.engine.SherpaRecognizerHolder
 import com.phequals7.muesli.model.ModelManager
 import com.phequals7.muesli.model.SpeechModels
@@ -256,12 +257,17 @@ class MeetingRecorderService : Service() {
 
             // Voice notes are a single speaker: no diarization, no "Intervenant N" labels.
             val isVoiceNote = sessionKind == RecordingSession.KIND_VOICE_NOTE
+            // Speaker of each decoded chunk, stored as TranscriptSegment rows (lot 3).
+            var labeledChunks = emptyList<SpeakerLabeler.LabeledText>()
             if (!discard && !isVoiceNote && store.speakerLabelsEnabled && wavFile != null && finalText.isNotBlank()) {
-                finalText = try {
-                    diarizeAndLabel(finalText)
+                try {
+                    labeledChunks = diarizeAndLabel()
+                    if (labeledChunks.isNotEmpty()) {
+                        finalText = SpeakerLabeler.render(labeledChunks).ifBlank { finalText }
+                    }
                 } catch (t: Throwable) {
                     Log.w(TAG, "Diarization failed, keeping unlabeled transcript: ${t.message}")
-                    finalText
+                    labeledChunks = emptyList()
                 }
             }
 
@@ -289,6 +295,18 @@ class MeetingRecorderService : Service() {
                                     ?: SpeechModels.selected(applicationContext).id
                             )
                             store.insertTranscript(transcript)
+                            store.replaceTranscriptSegments(
+                                id,
+                                labeledChunks.map {
+                                    TranscriptSegment(
+                                        sessionId = id,
+                                        startSec = it.startSec,
+                                        endSec = it.endSec,
+                                        speaker = it.speaker,
+                                        text = it.text,
+                                    )
+                                },
+                            )
                             store.updateRecordingSession(
                                 existing.copy(
                                     phase = "completed",
@@ -309,17 +327,16 @@ class MeetingRecorderService : Service() {
         }
     }
 
-    /** Runs diarization on the recorded WAV and renders a speaker-grouped
-     * transcript. Falls back to the plain text on any inconsistency. */
-    private fun diarizeAndLabel(plainText: String): String {
-        val wav = wavFile ?: return plainText
+    /** Runs diarization on the recorded WAV and gives each decoded chunk its
+     * speaker. Empty (plain transcript kept) on any inconsistency. */
+    private fun diarizeAndLabel(): List<SpeakerLabeler.LabeledText> {
+        val wav = wavFile ?: return emptyList()
         val pcm = readWavSamples(wav)
-        if (pcm.size < SAMPLE_RATE) return plainText
+        if (pcm.size < SAMPLE_RATE) return emptyList()
         val segments = SpeakerDiarizer(applicationContext).diarize(pcm)
-        if (segments.isEmpty()) return plainText
+        if (segments.isEmpty()) return emptyList()
         val chunks = synchronized(transcriptParts) { transcriptParts.toList() }
-        val labeled = SpeakerLabeler.render(chunks, segments)
-        return labeled.ifBlank { plainText }
+        return SpeakerLabeler.assign(chunks, segments)
     }
 
     private fun releaseVad() {

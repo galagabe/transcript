@@ -92,12 +92,15 @@ class SummaryWorker(
 interface SummarySessions {
     suspend fun session(id: String): RecordingSession?
     suspend fun transcript(sessionId: String): String?
+    /** Speaker number → name given by the user (lot 3); empty when none. */
+    suspend fun speakerNames(sessionId: String): Map<Int, String> = emptyMap()
     suspend fun update(session: RecordingSession)
 }
 
 private class StoreSummarySessions(private val store: SharedStore) : SummarySessions {
     override suspend fun session(id: String) = store.getRecordingSessionById(id)
     override suspend fun transcript(sessionId: String) = store.getTranscriptForSession(sessionId)?.text
+    override suspend fun speakerNames(sessionId: String) = store.getSpeakerNames(sessionId)
     override suspend fun update(session: RecordingSession) = store.updateRecordingSession(session)
 }
 
@@ -139,6 +142,8 @@ class SummaryRunner(
             title = session.title,
             templateId = template.id,
             templateInstructions = template.instructions,
+            // n8n tells Claude "Intervenant N = name"; the transcript keeps its "Intervenant N" labels.
+            speakerNames = speakerNamesPayload(sessions.speakerNames(sessionId)),
             manualNotes = session.manualNotes,
             transcript = transcript,
             durationSec = durationSec(session),
@@ -183,6 +188,13 @@ class SummaryRunner(
             }
         }
     }
+
+    /** {"1": "Commercial Clinitex", "2": "Prospect"}, in speaker order, blank names left out. */
+    private fun speakerNamesPayload(names: Map<Int, String>): Map<String, String> =
+        names.entries
+            .sortedBy { it.key }
+            .mapNotNull { (speaker, name) -> name.trim().takeIf { it.isNotEmpty() }?.let { speaker.toString() to it } }
+            .toMap()
 
     private fun durationSec(session: RecordingSession): Long {
         val start = session.startedAt ?: return 0

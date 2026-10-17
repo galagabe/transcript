@@ -66,6 +66,11 @@ kotlin {
     jvmToolchain(17)
 }
 
+// Room schema JSON per version (exact CREATE statements used by migrations).
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
   val composeBom = platform(libs.androidx.compose.bom)
   implementation(composeBom)

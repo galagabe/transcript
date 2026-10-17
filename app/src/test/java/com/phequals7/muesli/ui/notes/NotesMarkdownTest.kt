@@ -95,4 +95,27 @@ class NotesMarkdownTest {
         assertNull(blocks[0].speaker)
         assertEquals("Second paragraphe.", blocks[1].text)
     }
+
+    private val diarized = "Intervenant 1 · 0:04\nBonjour.\n\nSuite du tour.\n\n" +
+        "Intervenant 2 · 0:20\nTrès bien.\n\nIntervenant 1 · 0:41\nDevis vendredi."
+
+    @Test
+    fun speakersAreTheDistinctNumberedTurns() {
+        assertEquals(listOf(1, 2), TranscriptBlocks.speakers(diarized))
+        assertEquals(emptyList<Int>(), TranscriptBlocks.speakers("Une dictée sans intervenant."))
+    }
+
+    @Test
+    fun withNamesReplacesRenamedSpeakersOnly() {
+        assertEquals(
+            "Commercial Clinitex · 0:04\nBonjour.\n\nSuite du tour.\n\n" +
+                "Intervenant 2 · 0:20\nTrès bien.\n\nCommercial Clinitex · 0:41\nDevis vendredi.",
+            TranscriptBlocks.withNames(diarized, mapOf(1 to " Commercial Clinitex ", 2 to "  ")),
+        )
+    }
+
+    @Test
+    fun withNamesWithoutNamesKeepsTheTranscript() {
+        assertEquals(diarized, TranscriptBlocks.withNames(diarized, emptyMap()))
+    }
 }

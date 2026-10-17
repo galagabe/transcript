@@ -26,12 +26,14 @@ class SummaryWorkerTest {
     private class FakeSessions(
         session: RecordingSession,
         private val transcriptText: String?,
+        private val names: Map<Int, String> = emptyMap(),
     ) : SummarySessions {
         var current: RecordingSession = session
         val states = mutableListOf<String>()
 
         override suspend fun session(id: String) = current.takeIf { it.id == id }
         override suspend fun transcript(sessionId: String) = transcriptText
+        override suspend fun speakerNames(sessionId: String) = names
         override suspend fun update(session: RecordingSession) {
             current = session
             states += session.summaryState
@@ -124,6 +126,27 @@ class SummaryWorkerTest {
         val body = Json.parseToJsonElement(server.takeRequest().body.readUtf8()).jsonObject
         assertEquals("noteVocale", body["templateId"]!!.jsonPrimitive.content)
         assertEquals(MeetingTemplate.NOTE_VOCALE.instructions, body["templateInstructions"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `sends the speaker names given by the user`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"title":"t","notes":"## Synthèse\nok"}"""))
+        val sessions = FakeSessions(
+            meeting,
+            "Intervenant 1 · 0:04\nBonjour.\n\nIntervenant 2 · 0:20\nTrès bien.\n\nIntervenant 3 · 0:41\nOui.",
+            names = mapOf(2 to "  Prospect ", 1 to "Commercial Clinitex", 3 to "   "),
+        )
+
+        runner(sessions).run(meeting.id, attempt = 0, maxAttempts = 8)
+
+        val body = Json.parseToJsonElement(server.takeRequest().body.readUtf8()).jsonObject
+        val names = body["speakerNames"]!!.jsonObject
+        // Speaker order, trimmed, blank names left out.
+        assertEquals(listOf("1", "2"), names.keys.toList())
+        assertEquals("Commercial Clinitex", names["1"]!!.jsonPrimitive.content)
+        assertEquals("Prospect", names["2"]!!.jsonPrimitive.content)
+        // The transcript keeps its numbered labels: n8n maps them to the names.
+        assertTrue(body["transcript"]!!.jsonPrimitive.content.startsWith("Intervenant 1 · 0:04"))
     }
 
     @Test

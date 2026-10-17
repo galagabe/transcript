@@ -5,7 +5,9 @@ import android.content.SharedPreferences
 import com.phequals7.muesli.data.entity.CustomWord
 import com.phequals7.muesli.data.entity.DictationResult
 import com.phequals7.muesli.data.entity.RecordingSession
+import com.phequals7.muesli.data.entity.SpeakerName
 import com.phequals7.muesli.data.entity.Transcript
+import com.phequals7.muesli.data.entity.TranscriptSegment
 import kotlinx.coroutines.flow.Flow
 import java.util.UUID
 
@@ -15,6 +17,7 @@ class SharedStore(private val context: Context) {
     private val dictationResultDao = database.dictationResultDao()
     private val recordingSessionDao = database.recordingSessionDao()
     private val transcriptDao = database.transcriptDao()
+    private val speakerDao = database.speakerDao()
 
     private val prefs: SharedPreferences = context.getSharedPreferences("muesli_prefs", Context.MODE_PRIVATE)
 
@@ -103,9 +106,11 @@ class SharedStore(private val context: Context) {
     suspend fun getRecordingSessionById(id: String): RecordingSession? = recordingSessionDao.getSessionById(id)
     fun getRecordingSessionFlow(id: String): Flow<RecordingSession?> = recordingSessionDao.getSessionByIdFlow(id)
 
-    /** Deletes a session with its transcript and its retained WAV (if any). */
+    /** Deletes a session with its transcript, speakers and its retained WAV (if any). */
     suspend fun deleteRecordingSessionFully(session: RecordingSession) {
         transcriptDao.getTranscriptForSession(session.id)?.let { transcriptDao.deleteTranscript(it) }
+        speakerDao.deleteSegments(session.id)
+        speakerDao.deleteSpeakerNames(session.id)
         session.audioFileName?.let { name ->
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 java.io.File(context.filesDir, "meetings/$name").delete()
@@ -123,4 +128,20 @@ class SharedStore(private val context: Context) {
     suspend fun getTranscriptForSession(sessionId: String): Transcript? = transcriptDao.getTranscriptForSession(sessionId)
     suspend fun insertTranscript(transcript: Transcript) = transcriptDao.insertTranscript(transcript)
     suspend fun deleteTranscript(transcript: Transcript) = transcriptDao.deleteTranscript(transcript)
+
+    // Speakers (lot 3): diarized segments and user-given names
+    suspend fun replaceTranscriptSegments(sessionId: String, segments: List<TranscriptSegment>) =
+        speakerDao.replaceSegments(sessionId, segments)
+    /** Distinct speaker numbers of a meeting's segments (empty for meetings recorded before lot 3). */
+    fun getSegmentSpeakersFlow(sessionId: String): Flow<List<Int>> = speakerDao.getSegmentSpeakersFlow(sessionId)
+    fun getSpeakerNamesFlow(sessionId: String): Flow<List<SpeakerName>> = speakerDao.getSpeakerNamesFlow(sessionId)
+    /** Speaker number → name; only speakers the user actually renamed. */
+    suspend fun getSpeakerNames(sessionId: String): Map<Int, String> =
+        speakerDao.getSpeakerNames(sessionId).associate { it.speaker to it.name }
+    /** Saves the names of a meeting's speakers; a blank name goes back to "Intervenant N". */
+    suspend fun saveSpeakerNames(sessionId: String, names: Map<Int, String>) =
+        speakerDao.replaceSpeakerNames(
+            sessionId,
+            names.map { (speaker, name) -> SpeakerName(sessionId, speaker, name.trim()) },
+        )
 }

@@ -50,7 +50,7 @@ class ClinitexSummaryClient(
         val title: String,
         val templateId: String,
         val templateInstructions: String,
-        /** Speaker number ("1", "2", …) → display name. Filled by lot 3. */
+        /** Speaker number ("1", "2", …) → name given in the Transcription tab (lot 3). */
         val speakerNames: Map<String, String> = emptyMap(),
         val manualNotes: String = "",
         val transcript: String,

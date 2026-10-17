@@ -63,6 +63,31 @@ class SpeakerLabelerTest {
     }
 
     @Test
+    fun `assign numbers speakers from 1 and fills chunks without overlap`() {
+        val chunks = listOf(
+            TimedText(0f, 2f, "before any segment"),
+            TimedText(5f, 9f, "first speaker"),
+            TimedText(10f, 14f, "second speaker"),
+            TimedText(40f, 42f, "after every segment"),
+        )
+        val segments = listOf(
+            SpeakerSegment(4f, 9.5f, speaker = 1),
+            SpeakerSegment(9.5f, 20f, speaker = 0),
+        )
+        val labeled = SpeakerLabeler.assign(chunks, segments)
+        assertEquals(listOf(2, 2, 1, 1), labeled.map { it.speaker })
+        assertEquals("second speaker", labeled[2].text)
+        assertEquals(10f, labeled[2].startSec)
+        assertEquals(14f, labeled[2].endSec)
+    }
+
+    @Test
+    fun `assign without any segment gives speaker 1`() {
+        val labeled = SpeakerLabeler.assign(listOf(TimedText(0f, 3f, "alone")), emptyList())
+        assertEquals(listOf(1), labeled.map { it.speaker })
+    }
+
+    @Test
     fun `render handles empty input`() {
         assertEquals("", SpeakerLabeler.render(emptyList(), emptyList()))
     }

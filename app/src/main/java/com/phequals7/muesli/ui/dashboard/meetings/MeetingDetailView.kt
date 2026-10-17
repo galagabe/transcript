@@ -2,6 +2,7 @@ package com.phequals7.muesli.ui.dashboard.meetings
 
 import android.content.Intent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -11,8 +12,12 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -24,9 +29,11 @@ import com.phequals7.muesli.summaries.SummaryWorker
 import com.phequals7.muesli.theme.ClinitexPalette
 import com.phequals7.muesli.theme.ClinitexType
 import com.phequals7.muesli.ui.components.BottomActionBar
+import com.phequals7.muesli.ui.components.BrandCard
 import com.phequals7.muesli.ui.components.BrandInput
 import com.phequals7.muesli.ui.components.ConfirmDialog
 import com.phequals7.muesli.ui.components.DisplayTitle
+import com.phequals7.muesli.ui.components.Eyebrow
 import com.phequals7.muesli.ui.components.NoticeBox
 import com.phequals7.muesli.ui.components.NoticeTone
 import com.phequals7.muesli.ui.components.PillButton
@@ -38,6 +45,7 @@ import com.phequals7.muesli.ui.components.StatusBadge
 import com.phequals7.muesli.ui.dashboard.BadgeTone
 import com.phequals7.muesli.ui.dashboard.DisplayFormat
 import com.phequals7.muesli.ui.notes.NotesMarkdown
+import com.phequals7.muesli.ui.notes.TranscriptBlocks
 import com.phequals7.muesli.ui.notes.NotesView
 import com.phequals7.muesli.ui.notes.TranscriptView
 import kotlinx.coroutines.delay
@@ -47,7 +55,9 @@ import java.io.File
 /**
  * Meeting detail (CompteRendu.dc.html): uppercase title, pill tabs
  * "Compte rendu / Transcription / Notes", summary rendered from Markdown,
- * bottom bar "Partager" + "Relancer la synthèse".
+ * bottom bar "Partager" + "Relancer la synthèse". The Transcription tab
+ * (Transcription.dc.html) lets the user name the speakers (lot 3); the bar
+ * then holds "Enregistrer les noms".
  */
 @Composable
 fun MeetingDetailView(
@@ -66,11 +76,31 @@ fun MeetingDetailView(
     }
     var confirmDelete by remember { mutableStateOf(false) }
 
+    // Speakers (lot 3): numbers from the stored segments, names given by the user.
+    var segmentSpeakers by remember { mutableStateOf(emptyList<Int>()) }
+    var savedNames by remember { mutableStateOf(emptyMap<Int, String>()) }
+    /** Names being edited; null while the fields show the saved names. */
+    var draftNames by remember { mutableStateOf<Map<Int, String>?>(null) }
+    var offerRetry by remember { mutableStateOf(false) }
+
     ScreenBackground(ClinitexPalette.Paper)
 
     LaunchedEffect(meeting.id) {
         store.getTranscriptForSessionFlow(meeting.id).collect { transcriptText = it?.text }
     }
+    LaunchedEffect(meeting.id) {
+        store.getSegmentSpeakersFlow(meeting.id).collect { segmentSpeakers = it }
+    }
+    LaunchedEffect(meeting.id) {
+        store.getSpeakerNamesFlow(meeting.id).collect { rows -> savedNames = rows.associate { it.speaker to it.name } }
+    }
+
+    // Meetings recorded before lot 3 have no segments: fall back to the "Intervenant N" turns.
+    val speakers = remember(segmentSpeakers, transcriptText) {
+        segmentSpeakers.ifEmpty { TranscriptBlocks.speakers(transcriptText.orEmpty()) }
+    }
+    val shownNames = draftNames ?: savedNames
+    val namesChanged = draftNames?.let { cleanNames(it) != cleanNames(savedNames) } ?: false
 
     // Debounced notes persistence
     LaunchedEffect(notes) {
@@ -100,7 +130,10 @@ fun MeetingDetailView(
             append(meeting.title).append("\n").append(dateLine).append("\n\n")
             if (meeting.summaryText.isNotBlank()) append(NotesMarkdown.toPlainText(meeting.summaryText)).append("\n\n")
             if (notes.isNotBlank()) append("Notes saisies\n").append(notes.trim()).append("\n\n")
-            if (!transcriptText.isNullOrBlank()) append("Transcription\n").append(transcriptText)
+            val transcript = transcriptText
+            if (!transcript.isNullOrBlank()) {
+                append("Transcription\n").append(TranscriptBlocks.withNames(transcript, savedNames))
+            }
         }.trim()
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
@@ -110,10 +143,21 @@ fun MeetingDetailView(
         context.startActivity(Intent.createChooser(intent, "Partager la réunion"))
     }
 
+    fun saveNames() {
+        val names = cleanNames(shownNames)
+        scope.launch {
+            store.saveSpeakerNames(meeting.id, speakers.associateWith { names[it].orEmpty() })
+            draftNames = null
+            // The summary only sees the names on its next run: offer to regenerate it.
+            if (canRetry) offerRetry = true
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(ClinitexPalette.Paper)
+            .imePadding()
     ) {
         // Top bar: back / share / delete
         Row(modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 14.dp)) {
@@ -164,7 +208,14 @@ fun MeetingDetailView(
                                     color = ClinitexPalette.Muted,
                                 )
                             } else {
-                                TranscriptView(text)
+                                if (speakers.isNotEmpty()) {
+                                    SpeakersCard(
+                                        speakers = speakers,
+                                        names = shownNames,
+                                        onNameChange = { speaker, name -> draftNames = shownNames + (speaker to name) },
+                                    )
+                                }
+                                TranscriptView(text, speakerNames = cleanNames(shownNames))
                             }
                         }
                         MeetingSection.NOTES -> BrandInput(
@@ -179,7 +230,16 @@ fun MeetingDetailView(
             }
         }
 
-        BottomActionBar {
+        if (activeSection == MeetingSection.TRANSCRIPT && speakers.isNotEmpty() && !transcriptText.isNullOrBlank()) {
+            BottomActionBar {
+                PillButton(
+                    "Enregistrer les noms",
+                    onClick = { saveNames() },
+                    enabled = namesChanged,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        } else BottomActionBar {
             PillButton(
                 "Partager",
                 onClick = { shareMeeting() },
@@ -194,6 +254,22 @@ fun MeetingDetailView(
                 modifier = Modifier.weight(1f),
             )
         }
+    }
+
+    if (offerRetry) {
+        ConfirmDialog(
+            title = "Noms enregistrés",
+            text = "Relancer la synthèse pour que le compte rendu utilise ces noms ?",
+            confirmLabel = "Relancer la synthèse",
+            dismissLabel = "Plus tard",
+            destructive = false,
+            onConfirm = {
+                offerRetry = false
+                activeSection = MeetingSection.SUMMARY
+                scope.launch { SummaryWorker.enqueue(context, meeting.id) }
+            },
+            onDismiss = { offerRetry = false },
+        )
     }
 
     if (confirmDelete) {
@@ -248,6 +324,51 @@ internal fun SummarySection(session: RecordingSession, readyLabel: String = "Com
             style = ClinitexType.body(14.sp),
             color = ClinitexPalette.Muted,
         )
+    }
+}
+
+/** Trimmed names, blank ones dropped (a blank name means "Intervenant N"). */
+private fun cleanNames(names: Map<Int, String>): Map<Int, String> =
+    names.mapValues { it.value.trim() }.filterValues { it.isNotEmpty() }
+
+/**
+ * "INTERVENANTS" card (Transcription.dc.html): one numbered avatar per
+ * detected speaker, alternately blue and mint, with an editable name.
+ */
+@Composable
+private fun SpeakersCard(
+    speakers: List<Int>,
+    names: Map<Int, String>,
+    onNameChange: (Int, String) -> Unit,
+) {
+    BrandCard(shadow = false, padding = PaddingValues(16.dp), spacing = 12.dp) {
+        Eyebrow("Intervenants")
+        speakers.forEach { speaker ->
+            val odd = speaker % 2 == 1
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(if (odd) ClinitexPalette.Blue else ClinitexPalette.Mint),
+                ) {
+                    Text(
+                        speaker.toString(),
+                        style = ClinitexType.body(14.sp, FontWeight.Bold, 18.sp),
+                        color = if (odd) ClinitexPalette.Paper else ClinitexPalette.Ink,
+                    )
+                }
+                BrandInput(
+                    value = names[speaker].orEmpty(),
+                    onValueChange = { onNameChange(speaker, it) },
+                    placeholder = "Intervenant $speaker",
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics { contentDescription = "Nom de l’intervenant $speaker" },
+                )
+            }
+        }
     }
 }
 

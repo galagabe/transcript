@@ -152,4 +152,28 @@ object TranscriptBlocks {
         }
         return blocks
     }
+
+    /** Speaker numbers found in the turn headers, in ascending order. */
+    fun speakers(transcript: String): List<Int> =
+        parse(transcript).mapNotNull { it.speakerNumber }.distinct().sorted()
+
+    /** Label of a turn: the user-given name, else "Intervenant N" as stored. */
+    fun label(block: TranscriptBlock, names: Map<Int, String>): String? =
+        block.speakerNumber?.let { names[it]?.trim()?.takeIf(String::isNotEmpty) } ?: block.speaker
+
+    /**
+     * Transcript text with renamed speakers ("Prospect · 0:31" instead of
+     * "Intervenant 2 · 0:31"), for Copier / Partager. Unchanged without names.
+     */
+    fun withNames(transcript: String, names: Map<Int, String>): String {
+        if (names.values.none { it.isNotBlank() }) return transcript
+        return parse(transcript).joinToString("\n\n") { block ->
+            val label = label(block, names)
+            when {
+                label == null -> block.text
+                block.text.isEmpty() -> "$label · ${block.time}"
+                else -> "$label · ${block.time}\n${block.text}"
+            }
+        }
+    }
 }
