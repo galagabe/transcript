@@ -141,7 +141,7 @@ clinitex.deviceToken=…
   "manualNotes": "…",
   "transcript": "Intervenant 1 · 0:04\n…",
   "durationSec": 2710,
-  "appVersion": "0.3.0-alpha"
+  "appVersion": "1.0.0-beta"
 }
 ```
 
@@ -194,7 +194,7 @@ clindy/
 | — | Onglet Vocaux, charte Clinitex | ✅ |
 | 5 | Consentement avant enregistrement, suppression auto des audios après 7 jours, signature release, package `fr.clinitex.transcription` | ✅ (hébergement des modèles Parakeet : à décider) |
 
-> ℹ️ **Version alpha** : package `fr.clinitex.transcription`, release signée
+> ℹ️ **Version bêta** : package `fr.clinitex.transcription`, release signée
 > avec la clé Clinitex. Distribution interne uniquement.
 
 ## Origine et licence
@@ -205,4 +205,4 @@ Muesli sont conservés, comme l'exige la licence.
 
 ---
 
-<p align="center"><sub>Clinitex — application interne · Clindy v0.3.0-alpha</sub></p>
+<p align="center"><sub>Clinitex — application interne · Clindy v1.0.0-beta</sub></p>
