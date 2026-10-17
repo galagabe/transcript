@@ -50,6 +50,10 @@ Trois onglets : **Réunions · Vocaux · Réglages**.
    dictionnaire de mots personnalisés (ex. « autolaveuse »), modèle de
    transcription.
 
+Avant chaque enregistrement (réunion ou vocal), une fenêtre demande de cocher
+**« Les participants ont été informés de l'enregistrement »** ; l'heure de cette
+confirmation est enregistrée avec la réunion.
+
 L'état de la synthèse est visible sur chaque élément : **en attente de réseau**
 → **en cours** → **terminée** (ou **échec**, avec relance possible).
 
@@ -97,6 +101,9 @@ L'état de la synthèse est visible sur chaque élément : **en attente de rése
 
 > 🔒 **Confidentialité** : l'audio et la transcription restent sur le
 > téléphone. Seul le texte part vers n8n au moment de la synthèse.
+> L'audio est **supprimé automatiquement 7 jours** après la fin de
+> l'enregistrement (purge quotidienne et à chaque lancement) ; la
+> transcription et le compte rendu restent dans l'app.
 
 ## Configuration (développeur uniquement)
 
@@ -108,13 +115,17 @@ d'appareil sont injectés à la compilation via **`local.properties`**
 |---|---|
 | `clinitex.summaryUrl` | URL du webhook n8n de synthèse |
 | `clinitex.deviceToken` | Jeton envoyé dans l'en-tête `X-Clinitex-Device-Token` |
+| `clinitex.release.storeFile` | Chemin du keystore Clinitex (hors dépôt) pour signer la release |
+| `clinitex.release.storePassword` / `keyPassword` | Mots de passe du keystore et de la clé |
+| `clinitex.release.keyAlias` | Alias de la clé (`clindy`) |
 
 ```properties
 clinitex.summaryUrl=https://…/webhook/…
 clinitex.deviceToken=…
 ```
 
-> Ne jamais committer `local.properties`.
+> Ne jamais committer `local.properties` ni le keystore (`*.jks` est ignoré par git).
+> Sans les clés `clinitex.release.*`, la release est signée avec la clé de debug.
 
 ### Contrat du webhook
 
@@ -158,7 +169,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 ### Structure
 ```
 clindy/
-├── app/src/main/java/com/phequals7/muesli/
+├── app/src/main/java/fr/clinitex/transcription/
 │   ├── meetings/     # service d'enregistrement, diarisation, modèles de compte rendu
 │   ├── engine/       # chargement partagé de Parakeet (sherpa-onnx)
 │   ├── model/        # téléchargement reprenable des modèles
@@ -181,11 +192,10 @@ clindy/
 | 3 | Intervenants nommables | ✅ |
 | 4 | Robustesse mémoire sur réunions longues + calibration des intervenants | ✅ (test d'1 h en conditions réelles à faire) |
 | — | Onglet Vocaux, charte Clinitex | ✅ |
-| 5 | Consentement avant enregistrement, suppression auto des audios après 7 jours, signature release, package `fr.clinitex.transcription` | à faire |
+| 5 | Consentement avant enregistrement, suppression auto des audios après 7 jours, signature release, package `fr.clinitex.transcription` | ✅ (hébergement des modèles Parakeet : à décider) |
 
-> ℹ️ **Version alpha** : l'APK est encore signé avec la clé de debug et le
-> package s'appelle toujours `com.phequals7.muesli`. Distribution interne
-> uniquement.
+> ℹ️ **Version alpha** : package `fr.clinitex.transcription`, release signée
+> avec la clé Clinitex. Distribution interne uniquement.
 
 ## Origine et licence
 

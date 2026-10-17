@@ -19,23 +19,39 @@ fun clinitexProp(name: String): String =
     (findProperty(name) as String?) ?: localProps.getProperty(name, "")
 
 android {
-    namespace = "com.phequals7.muesli"
+    namespace = "fr.clinitex.transcription"
     compileSdk = 36
     defaultConfig {
-        applicationId = "com.phequals7.muesli"
+        applicationId = "fr.clinitex.transcription"
         minSdk = 24
         targetSdk = 36
         versionCode = 3
         versionName = "0.3.0-alpha"
+        // Instrumented tests (MigrationTest, DiarizationCalibrationTest) run with `adb shell am instrument`.
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "CLINITEX_SUMMARY_URL", "\"${clinitexProp("clinitex.summaryUrl")}\"")
         buildConfigField("String", "CLINITEX_DEVICE_TOKEN", "\"${clinitexProp("clinitex.deviceToken")}\"")
+    }
+
+    // Lot 5: Clinitex release key. Keystore and passwords come from local.properties
+    // or -P (clinitex.release.*), never from the repo. Without them, release falls
+    // back to the debug key so a fresh checkout (CI) still builds.
+    val releaseStoreFile = clinitexProp("clinitex.release.storeFile")
+    signingConfigs {
+        if (releaseStoreFile.isNotEmpty()) {
+            create("release") {
+                storeFile = file(releaseStoreFile)
+                storePassword = clinitexProp("clinitex.release.storePassword")
+                keyAlias = clinitexProp("clinitex.release.keyAlias")
+                keyPassword = clinitexProp("clinitex.release.keyPassword")
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Alpha: sign with the debug key so the APK is installable; revisit for beta/stable.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }

@@ -13,3 +13,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Release signing keys (Clinitex keystore lives outside the repo)
+*.jks
+*.keystore
