@@ -331,9 +331,9 @@ class MeetingRecorderService : Service() {
      * speaker. Empty (plain transcript kept) on any inconsistency. */
     private fun diarizeAndLabel(): List<SpeakerLabeler.LabeledText> {
         val wav = wavFile ?: return emptyList()
-        val pcm = readWavSamples(wav)
-        if (pcm.size < SAMPLE_RATE) return emptyList()
-        val segments = SpeakerDiarizer(applicationContext).diarize(pcm)
+        // Lot 4: streamed from the WAV window by window, never the whole hour in memory.
+        if (WavSamples.sampleCount(wav) < SAMPLE_RATE) return emptyList()
+        val segments = SpeakerDiarizer(applicationContext).diarize(wav)
         if (segments.isEmpty()) return emptyList()
         val chunks = synchronized(transcriptParts) { transcriptParts.toList() }
         return SpeakerLabeler.assign(chunks, segments)
@@ -651,22 +651,6 @@ class MeetingRecorderService : Service() {
             raf.seek(0)
             raf.write(header)
         }
-    }
-
-    /** Reads a 16 kHz mono 16-bit WAV (as written by [appendToWav]) back into
-     * float samples for diarization. */
-    private fun readWavSamples(file: File): FloatArray {
-        val bytes = file.readBytes()
-        if (bytes.size <= 44) return FloatArray(0)
-        val count = (bytes.size - 44) / 2
-        val out = FloatArray(count)
-        for (i in 0 until count) {
-            val lo = bytes[44 + i * 2].toInt() and 0xFF
-            val hi = bytes[44 + i * 2 + 1].toInt()
-            val sample = (hi shl 8) or lo
-            out[i] = sample / 32768f
-        }
-        return out
     }
 
     // ── notification ─────────────────────────────────────────────────────
