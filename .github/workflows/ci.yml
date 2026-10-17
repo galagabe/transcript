@@ -1,9 +1,20 @@
+# Intégration continue Clindy : tests unitaires, build release (lint vital)
+# et APK debug publié en artefact (installable sur téléphone arm64).
+#
+# Aucun secret : sans local.properties, les champs BuildConfig CLINITEX_*
+# (URL du webhook n8n, jeton d'appareil) sont vides. Ne jamais mettre l'URL
+# ni le jeton dans ce dépôt.
+
 name: CI
 
 on:
   push:
     branches: [main]
   pull_request:
+
+# Lecture seule : les artefacts passent par le jeton de runtime Actions.
+permissions:
+  contents: read
 
 jobs:
   build-and-test:
@@ -19,22 +30,26 @@ jobs:
           distribution: temurin
           java-version: "21"
 
+      # Par défaut, setup-android@v3 installe « tools platform-tools » ; le
+      # paquet « tools » n'existe plus et sdkmanager échoue. On n'installe
+      # rien ici, les paquets utiles sont installés à l'étape suivante.
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: ""
+          log-accepted-android-sdk-licenses: false
 
       - name: Install SDK packages
-        run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+        run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
-      - name: Make Gradle wrapper executable
-        run: chmod +x gradlew
+      - name: Cache Gradle
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Unit tests
         run: ./gradlew testDebugUnitTest --stacktrace
 
-      - name: Assemble release (incl. lint vital)
-        run: ./gradlew assembleRelease
+      - name: Assemble debug and release (incl. lint vital)
+        run: ./gradlew assembleDebug assembleRelease
 
       - name: Upload test results
         if: always()
@@ -42,6 +57,13 @@ jobs:
         with:
           name: test-results
           path: app/build/reports/tests/testDebugUnitTest/
+          retention-days: 14
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
 
       - name: Upload release APK
@@ -66,6 +88,12 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: ""
+          log-accepted-android-sdk-licenses: false
+
+      - name: Cache Gradle
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Enable KVM
         run: |
