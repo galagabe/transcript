@@ -1,2 +1,198 @@
-# Clindy
-Clindy — application Android interne Clinitex de comptes rendus de réunions et de notes vocales. Transcription et identification des intervenants 100 % sur le téléphone (Parakeet v3, pyannote, sherpa-onnx), synthèse par Claude via un webhook n8n, envoyée dès le retour du réseau. Fork de Muesli Android (MIT).
+<p align="center">
+  <img src="app/src/main/res/drawable-nodpi/logo_clinitex.png" alt="Clinitex" width="96"/>
+</p>
+
+<h1 align="center">Clindy</h1>
+
+<p align="center">
+  Application Android qui enregistre les réunions et les notes vocales des
+  collaborateurs Clinitex et en tire un compte rendu prêt à partager.
+</p>
+
+---
+
+## En deux mots
+
+**Clindy** enregistre une réunion (RDV commercial, réunion interne, COPIL) ou
+une dictée courte, la **transcrit sur le téléphone**, reconnaît **qui parle**,
+puis fait rédiger un **compte rendu structuré par Claude**.
+
+La transcription et l'identification des intervenants se font **100 % en
+local** : aucun son ne quitte le téléphone. Seul le texte de la transcription
+part vers un **webhook n8n Clinitex**, qui appelle Claude et renvoie le compte
+rendu. Sans réseau, la synthèse est **mise en file** et part toute seule dès
+que le téléphone retrouve une connexion.
+
+## À quoi ça sert
+
+- Sortir d'un **RDV commercial** avec un compte rendu propre : besoin du
+  client, prestations, objections, suite à donner.
+- Garder une trace des **réunions internes** : décisions, actions,
+  responsables, échéances.
+- **Dicter une note** entre deux rendez-vous et la retrouver mise au propre,
+  avec sa liste « À faire ».
+- Partager le résultat en un geste (Outlook, Teams…) via la feuille de partage
+  Android.
+
+## Ce que voit l'utilisateur
+
+Trois onglets : **Réunions · Vocaux · Réglages**.
+
+1. **Réunions** : choisir un modèle de compte rendu, lancer l'enregistrement,
+   l'arrêter. Le détail de la réunion affiche le compte rendu, la
+   transcription par intervenant (« Intervenant 1 », renommable en
+   « Commercial Clinitex », « Prospect »…), le lecteur audio, et les boutons
+   **Copier**, **Partager** et **Relancer la synthèse**.
+2. **Vocaux** : un grand bouton **« Appuyez pour dicter »**. Chaque note a deux
+   vues : **Note au propre** et **Transcription brute**.
+3. **Réglages** : modèle de compte rendu par défaut, micro d'enregistrement
+   (micro USB externe ou micro du téléphone), affichage des intervenants,
+   dictionnaire de mots personnalisés (ex. « autolaveuse »), modèle de
+   transcription.
+
+L'état de la synthèse est visible sur chaque élément : **en attente de réseau**
+→ **en cours** → **terminée** (ou **échec**, avec relance possible).
+
+## Modèles de compte rendu
+
+| Modèle | Sections principales |
+|---|---|
+| Réunion générale | Synthèse, points clés, décisions, actions à mener |
+| RDV commercial | Synthèse du rendez-vous, contexte du client, … *(sections à valider)* |
+| Réunion interne | Synthèse, points abordés, décisions, actions, points ouverts |
+| Note vocale | Note, À faire *(réservé à l'onglet Vocaux)* |
+
+## Comment ça marche (principe)
+
+```
+┌──────────────────────── Téléphone (hors ligne) ────────────────────────┐
+│ micro 16 kHz ─► découpage parole (Silero VAD) ─► transcription         │
+│                                                  (Parakeet TDT 0.6B v3) │
+│ à l'arrêt : qui parle quand (pyannote + TitaNet-S) ─► « Intervenant N »│
+│ stockage local (Room) : réunion, transcription, intervenants            │
+└──────────────────────────────────┬──────────────────────────────────────┘
+                                   │ dès que le réseau est là (WorkManager)
+                                   ▼
+                    ┌──────────────────────────────┐        ┌──────────────┐
+                    │ webhook n8n Clinitex         │ ─────► │ Claude Haiku │
+                    │ (vérifie le jeton d'appareil)│ ◄───── │ (API)        │
+                    └──────────────────────────────┘        └──────────────┘
+                                   │ { title, notes }
+                                   ▼
+                     compte rendu affiché dans l'app
+```
+
+- **Reconnaissance vocale locale** : Parakeet TDT 0.6B v3 (int8, multilingue)
+  via **sherpa-onnx**. Le modèle (~670 Mo) est téléchargé au premier
+  lancement (Hugging Face, avec repli sur un miroir).
+- **Intervenants** : diarisation locale à la fin de l'enregistrement. Au-delà
+  de 10 min, traitement **par fenêtres de 10 min** pour tenir en mémoire sur
+  les téléphones modestes, avec raccord des voix d'une fenêtre à l'autre.
+- **Synthèse différée** : file WorkManager avec contrainte réseau. **Aucune
+  clé API dans l'APK** : la clé Anthropic vit uniquement dans les credentials
+  n8n.
+- **Rien n'est conservé côté serveur** : n8n renvoie `{title, notes}` et c'est
+  tout (sauvegarde des exécutions réussies désactivée dans le workflow). Le
+  compte rendu ne vit que dans l'app.
+
+> 🔒 **Confidentialité** : l'audio et la transcription restent sur le
+> téléphone. Seul le texte part vers n8n au moment de la synthèse.
+
+## Configuration (développeur uniquement)
+
+L'utilisateur final **ne saisit rien**. L'URL du webhook et le jeton
+d'appareil sont injectés à la compilation via **`local.properties`**
+(gitignoré) ou des propriétés Gradle `-P`.
+
+| Clé | Rôle |
+|---|---|
+| `clinitex.summaryUrl` | URL du webhook n8n de synthèse |
+| `clinitex.deviceToken` | Jeton envoyé dans l'en-tête `X-Clinitex-Device-Token` |
+
+```properties
+clinitex.summaryUrl=https://…/webhook/…
+clinitex.deviceToken=…
+```
+
+> Ne jamais committer `local.properties`.
+
+### Contrat du webhook
+
+`POST {clinitex.summaryUrl}` avec l'en-tête `X-Clinitex-Device-Token`.
+
+```json
+{
+  "sessionId": "uuid",
+  "title": "RDV Résidence Les Tilleuls",
+  "templateId": "rdvCommercial",
+  "templateInstructions": "…",
+  "speakerNames": { "1": "Commercial Clinitex", "2": "Prospect" },
+  "manualNotes": "…",
+  "transcript": "Intervenant 1 · 0:04\n…",
+  "durationSec": 2710,
+  "appVersion": "0.3.0-alpha"
+}
+```
+
+Réponse `200` : `{ "title": "Titre court", "notes": "## Synthèse\n…" }`
+
+## Pour les développeurs
+
+### Pile technique
+- Kotlin + **Jetpack Compose** (Material 3), charte Clinitex (polices AZO Sans
+  Uber et Sofia Pro Soft, thème clair)
+- **sherpa-onnx** : Silero VAD, Parakeet TDT 0.6B v3, pyannote segmentation
+  3.0, TitaNet-S
+- **Room** (sessions, transcriptions, segments par intervenant, noms donnés)
+- **WorkManager** (synthèse différée) + **OkHttp** + `kotlinx.serialization`
+- **BuildConfig** (URL + jeton via Gradle)
+- minSdk 24 / targetSdk 36 · JDK 17 · **arm64-v8a uniquement** (pas de libs
+  natives x86_64)
+
+### Build
+```bash
+./gradlew assembleDebug testDebugUnitTest   # APK dans app/build/outputs/apk/debug/
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+### Structure
+```
+clindy/
+├── app/src/main/java/com/phequals7/muesli/
+│   ├── meetings/     # service d'enregistrement, diarisation, modèles de compte rendu
+│   ├── engine/       # chargement partagé de Parakeet (sherpa-onnx)
+│   ├── model/        # téléchargement reprenable des modèles
+│   ├── summaries/    # client du webhook n8n, SummaryWorker
+│   ├── data/         # Room (entités, DAO, migrations)
+│   ├── ui/           # écrans Compose (Réunions, Vocaux, Réglages, enregistrement)
+│   ├── theme/        # charte Clinitex
+│   └── utils/        # dictionnaire métier, suppression des « euh »
+├── app/src/main/assets/models/   # VAD, segmentation, empreintes vocales (embarqués)
+├── app/src/main/jniLibs/arm64-v8a/  # runtime sherpa-onnx / onnxruntime
+└── app/schemas/      # schémas Room exportés (migrations)
+```
+
+## Avancement
+
+| Lot | Contenu | État |
+|---|---|---|
+| 1 | Synthèse différée via n8n | ✅ |
+| 2 | Modèles de compte rendu en français | ✅ |
+| 3 | Intervenants nommables | ✅ |
+| 4 | Robustesse mémoire sur réunions longues + calibration des intervenants | ✅ (test d'1 h en conditions réelles à faire) |
+| — | Onglet Vocaux, charte Clinitex | ✅ |
+| 5 | Consentement avant enregistrement, suppression auto des audios après 7 jours, signature release, package `fr.clinitex.transcription` | à faire |
+
+> ℹ️ **Version alpha** : l'APK est encore signé avec la clé de debug et le
+> package s'appelle toujours `com.phequals7.muesli`. Distribution interne
+> uniquement.
+
+## Origine et licence
+
+Clindy est un fork de [Muesli Android](https://github.com/Muesli-HQ/muesli-android)
+(licence MIT). Le fichier [`LICENSE`](LICENSE) et la mention de copyright
+Muesli sont conservés, comme l'exige la licence.
+
+---
+
+<p align="center"><sub>Clinitex — application interne · Clindy v0.3.0-alpha</sub></p>
