@@ -15,9 +15,10 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 
 /**
- * Lot 5, Clinitex retention rule: recorded audio is kept 7 days after the
- * end of the recording, then deleted. Runs once a day and at every app
- * launch; the transcript and the summary stay in the app.
+ * Clinitex retention rule: recorded audio (meetings and voice notes) is kept
+ * 48 h after the end of the recording, then deleted (lot 6c, was 7 days in
+ * lot 5). Runs every hour, so audio never stays much past 48 h, and at every
+ * app launch; the transcript and the summary stay in the app.
  */
 class AudioPurgeWorker(
     context: Context,
@@ -26,19 +27,19 @@ class AudioPurgeWorker(
 
     companion object {
         private const val TAG = "AudioPurgeWorker"
-        private const val DAILY_WORK = "audio-purge-daily"
+        private const val PERIODIC_WORK = "audio-purge-daily" // name kept: UPDATE replaces the old daily schedule
         private const val LAUNCH_WORK = "audio-purge-launch"
 
-        const val RETENTION_DAYS = 7
-        val RETENTION_MS: Long = TimeUnit.DAYS.toMillis(RETENTION_DAYS.toLong())
+        const val RETENTION_HOURS = 48
+        val RETENTION_MS: Long = TimeUnit.HOURS.toMillis(RETENTION_HOURS.toLong())
 
-        /** Daily purge (kept if already scheduled) + one immediate purge. Call at app launch. */
+        /** Hourly purge + one immediate purge. Call at app launch. */
         fun schedule(context: Context) {
             val workManager = WorkManager.getInstance(context.applicationContext)
             workManager.enqueueUniquePeriodicWork(
-                DAILY_WORK,
-                ExistingPeriodicWorkPolicy.KEEP,
-                PeriodicWorkRequestBuilder<AudioPurgeWorker>(1, TimeUnit.DAYS).build(),
+                PERIODIC_WORK,
+                ExistingPeriodicWorkPolicy.UPDATE,
+                PeriodicWorkRequestBuilder<AudioPurgeWorker>(1, TimeUnit.HOURS).build(),
             )
             workManager.enqueueUniqueWork(
                 LAUNCH_WORK,

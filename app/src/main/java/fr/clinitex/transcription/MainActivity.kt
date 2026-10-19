@@ -26,6 +26,7 @@ import fr.clinitex.transcription.engine.SherpaRecognizerHolder
 import fr.clinitex.transcription.meetings.AudioPurgeWorker
 import fr.clinitex.transcription.model.ModelManager
 import fr.clinitex.transcription.model.SpeechModels
+import fr.clinitex.transcription.summaries.SummaryRecoveryWorker
 import fr.clinitex.transcription.theme.AppChrome
 import fr.clinitex.transcription.theme.ClinitexPalette
 import fr.clinitex.transcription.theme.MuesliTheme
@@ -41,10 +42,12 @@ class MainActivity : ComponentActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
-    // Lot 5: audio kept 7 days — purge now, then once a day.
+    // Lot 5 / 6c: audio kept 48 h — purge now, then every hour.
     AudioPurgeWorker.schedule(applicationContext)
     // Lot 6a: common Clinitex dictionary — download when online, then every 12 h.
     CommonDictionaryWorker.schedule(applicationContext)
+    // Lot 6b: summaries waiting, stuck or failed for network — check now, then every 30 min.
+    SummaryRecoveryWorker.schedule(applicationContext)
 
     // Light-only app: dark system-bar icons whatever the system dark mode
     // (switched to light icons below while the full-blue recording screen shows).

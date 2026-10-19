@@ -29,7 +29,7 @@ data class RecordingSession(
     val summaryState: String = "notStarted",
     /** Lot 5: when the user ticked "participants informed" before recording (epoch ms); null for older sessions. */
     val consentAt: Long? = null,
-    /** Lot 5: when AudioPurgeWorker deleted the WAV after the 7-day retention (epoch ms); null while kept. */
+    /** Lot 5: when AudioPurgeWorker deleted the WAV after the 48 h retention (epoch ms); null while kept. */
     val audioDeletedAt: Long? = null,
 ) {
     companion object {

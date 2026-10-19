@@ -1,5 +1,6 @@
 package fr.clinitex.transcription.ui.dashboard
 
+import fr.clinitex.transcription.data.entity.RecordingSession
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -32,6 +33,23 @@ object SessionStatus {
 
     /** The summary waits for the phone to be back online. */
     fun isWaitingForNetwork(summaryState: String): Boolean = summaryState == "queued"
+
+    /**
+     * Lot 6b "Forcer la reconnexion" banner text: "2 synthèses en attente · 1 en échec";
+     * null (no banner) when no summary waits for the network or has failed.
+     */
+    fun pendingSummariesLabel(sessions: List<RecordingSession>): String? {
+        val done = sessions.filter { it.phase == "completed" }
+        val waiting = done.count { it.summaryState == "queued" }
+        val failed = done.count { it.summaryState == "failed" }
+        fun summaries(n: Int) = if (n > 1) "$n synthèses" else "$n synthèse"
+        return when {
+            waiting > 0 && failed > 0 -> "${summaries(waiting)} en attente · $failed en échec"
+            waiting > 0 -> "${summaries(waiting)} en attente"
+            failed > 0 -> "${summaries(failed)} en échec"
+            else -> null
+        }
+    }
 }
 
 /** French date / duration labels used by the lists and detail screens. */

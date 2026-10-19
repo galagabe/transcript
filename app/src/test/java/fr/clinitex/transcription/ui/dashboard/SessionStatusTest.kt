@@ -1,5 +1,6 @@
 package fr.clinitex.transcription.ui.dashboard
 
+import fr.clinitex.transcription.data.entity.RecordingSession
 import fr.clinitex.transcription.meetings.MeetingTemplate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -70,5 +71,25 @@ class SessionStatusTest {
         assertTrue(instructions.startsWith("Mets au propre ce message dicté, sans rien inventer ni ajouter.\n\n## Note\n"))
         assertTrue(instructions.contains("\n\n## À faire\n- [ ] "))
         assertTrue(instructions.endsWith("Si aucune action n'est citée, écris « Rien de noté »."))
+    }
+
+    @Test
+    fun pendingSummariesLabelCountsWaitingAndFailedSummaries() {
+        fun row(id: String, summaryState: String, phase: String = "completed") =
+            RecordingSession(id = id, kind = RecordingSession.KIND_MEETING, title = id, phase = phase, summaryState = summaryState)
+
+        assertNull(SessionStatus.pendingSummariesLabel(emptyList()))
+        // Being sent right now, done or still transcribing: no banner.
+        assertNull(
+            SessionStatus.pendingSummariesLabel(
+                listOf(row("a", "generating"), row("b", "completed"), row("c", "queued", phase = "transcribing"))
+            )
+        )
+        assertEquals("1 synthèse en attente", SessionStatus.pendingSummariesLabel(listOf(row("a", "queued"))))
+        assertEquals("2 synthèses en échec", SessionStatus.pendingSummariesLabel(listOf(row("a", "failed"), row("b", "failed"))))
+        assertEquals(
+            "2 synthèses en attente · 1 en échec",
+            SessionStatus.pendingSummariesLabel(listOf(row("a", "queued"), row("b", "queued"), row("c", "failed"))),
+        )
     }
 }

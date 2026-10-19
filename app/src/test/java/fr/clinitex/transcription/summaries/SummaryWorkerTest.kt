@@ -30,6 +30,8 @@ class SummaryWorkerTest {
     ) : SummarySessions {
         var current: RecordingSession = session
         val states = mutableListOf<String>()
+        /** Lot 6b: permanent flag of the last recorded failure, null when none. */
+        var permanentFailure: Boolean? = null
 
         override suspend fun session(id: String) = current.takeIf { it.id == id }
         override suspend fun transcript(sessionId: String) = transcriptText
@@ -37,6 +39,9 @@ class SummaryWorkerTest {
         override suspend fun update(session: RecordingSession) {
             current = session
             states += session.summaryState
+        }
+        override suspend fun recordFailure(sessionId: String, permanent: Boolean) {
+            permanentFailure = permanent
         }
     }
 
@@ -169,6 +174,7 @@ class SummaryWorkerTest {
         assertEquals(SummaryRunner.Outcome.RETRY, outcome)
         assertEquals(listOf("generating", "queued"), sessions.states)
         assertEquals("", sessions.current.summaryText)
+        assertEquals(null, sessions.permanentFailure)
     }
 
     @Test
@@ -194,6 +200,8 @@ class SummaryWorkerTest {
         assertEquals("failed", sessions.current.summaryState)
         assertTrue(sessions.current.summaryText.contains(transcript))
         assertTrue(sessions.current.summaryText.contains("Rappeler jeudi"))
+        // Network / server failure: the 30-min recovery may try again.
+        assertEquals(false, sessions.permanentFailure)
     }
 
     @Test
@@ -206,6 +214,8 @@ class SummaryWorkerTest {
         assertEquals(SummaryRunner.Outcome.FAILED, outcome)
         assertEquals("failed", sessions.current.summaryState)
         assertTrue(sessions.current.summaryText.contains("HTTP 401"))
+        // Never retried automatically: only the user relaunches it.
+        assertEquals(true, sessions.permanentFailure)
     }
 
     @Test

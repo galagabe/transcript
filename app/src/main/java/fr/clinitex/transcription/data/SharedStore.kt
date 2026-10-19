@@ -10,6 +10,7 @@ import fr.clinitex.transcription.data.entity.Transcript
 import fr.clinitex.transcription.data.entity.TranscriptSegment
 import fr.clinitex.transcription.dictionary.CommonDictionaryRepository
 import fr.clinitex.transcription.dictionary.CommonWords
+import fr.clinitex.transcription.summaries.SummaryFailureInfo
 import kotlinx.coroutines.flow.Flow
 import java.util.UUID
 
@@ -88,6 +89,25 @@ class SharedStore(private val context: Context) {
     suspend fun updateCustomWord(word: CustomWord) = customWordDao.updateCustomWord(word)
     suspend fun deleteCustomWordById(id: String) = customWordDao.deleteCustomWordById(id)
 
+    // Summary recovery (lot 6b): failure memory per session, outside Room (no schema change).
+    private val summaryPrefs: SharedPreferences =
+        context.getSharedPreferences("summary_recovery", Context.MODE_PRIVATE)
+
+    fun summaryFailure(sessionId: String) = SummaryFailureInfo(
+        permanent = summaryPrefs.getBoolean("permanent:$sessionId", false),
+        autoRetries = summaryPrefs.getInt("auto:$sessionId", 0),
+    )
+
+    fun markSummaryFailure(sessionId: String, permanent: Boolean) =
+        summaryPrefs.edit().putBoolean("permanent:$sessionId", permanent).apply()
+
+    fun recordSummaryAutoRetry(sessionId: String) =
+        summaryPrefs.edit().putInt("auto:$sessionId", summaryFailure(sessionId).autoRetries + 1).apply()
+
+    /** The user relaunched the summary (or deleted the session): automatic retries start over. */
+    fun clearSummaryFailure(sessionId: String) =
+        summaryPrefs.edit().remove("permanent:$sessionId").remove("auto:$sessionId").apply()
+
     // Common Clinitex dictionary (lot 6a): the user can switch a word off, not delete it.
     /** [CommonWords.key]s of the common words this user switched off. */
     var disabledCommonWords: Set<String>
@@ -129,6 +149,7 @@ class SharedStore(private val context: Context) {
         transcriptDao.getTranscriptForSession(session.id)?.let { transcriptDao.deleteTranscript(it) }
         speakerDao.deleteSegments(session.id)
         speakerDao.deleteSpeakerNames(session.id)
+        clearSummaryFailure(session.id)
         session.audioFileName?.let { name ->
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 java.io.File(context.filesDir, "meetings/$name").delete()

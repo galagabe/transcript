@@ -383,7 +383,7 @@ private enum class MeetingSection(val label: String) {
 }
 
 /**
- * Lot 5 notices under the date line: consent confirmation and the 7-day
+ * Lot 5 notices under the date line: consent confirmation and the 48 h
  * audio retention ("Audio supprimé automatiquement le 24/10" once purged).
  */
 private fun audioRetentionLine(meeting: RecordingSession): String? {
@@ -392,7 +392,7 @@ private fun audioRetentionLine(meeting: RecordingSession): String? {
         meeting.audioDeletedAt != null ->
             "Audio supprimé automatiquement le ${DisplayFormat.dayMonth(meeting.audioDeletedAt)}"
         meeting.audioFileName != null ->
-            AudioPurgeWorker.deletionDueAt(meeting)?.let { "Audio conservé jusqu’au ${DisplayFormat.dayMonth(it)}" }
+            AudioPurgeWorker.deletionDueAt(meeting)?.let { "Audio conservé jusqu’au ${DisplayFormat.dayMonthTime(it)}" }
         else -> null
     }
     return listOfNotNull(consent, audio).joinToString(" · ").ifEmpty { null }

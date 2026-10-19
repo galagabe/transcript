@@ -34,6 +34,7 @@ import fr.clinitex.transcription.dictionary.CommonDictionaryRepository
 import fr.clinitex.transcription.dictionary.CommonDictionaryWorker
 import fr.clinitex.transcription.dictionary.CommonWords
 import fr.clinitex.transcription.engine.SherpaRecognizerHolder
+import fr.clinitex.transcription.meetings.AudioPurgeWorker
 import fr.clinitex.transcription.meetings.MeetingTemplate
 import fr.clinitex.transcription.model.ModelManager
 import fr.clinitex.transcription.model.SpeechModel
@@ -298,7 +299,7 @@ private fun MeetingsSettings(store: SharedStore) {
             )
             // Audio retention is a Clinitex rule, not a user choice: shown, not switchable.
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("Conservation de l’audio : 7 jours", style = ClinitexType.body(15.sp, FontWeight.Bold, 20.sp), color = ClinitexPalette.Ink)
+                Text("Conservation de l’audio : ${AudioPurgeWorker.RETENTION_HOURS} h", style = ClinitexType.body(15.sp, FontWeight.Bold, 20.sp), color = ClinitexPalette.Ink)
                 Text(
                     "L’audio reste sur le téléphone pour la réécoute, puis il est supprimé automatiquement. La transcription et le compte rendu restent dans l’appli.",
                     style = ClinitexType.body(12.sp, FontWeight.Normal, 17.sp),

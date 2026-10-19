@@ -13,7 +13,7 @@ import org.junit.rules.TemporaryFolder
 import java.io.File
 import java.util.concurrent.TimeUnit
 
-/** Lot 5: 7-day audio retention ([AudioPurger]) on a real temp directory. */
+/** 48 h audio retention (lot 6c; 7 days in lot 5) ([AudioPurger]) on a real temp directory. */
 class AudioPurgerTest {
 
     @get:Rule
@@ -58,9 +58,9 @@ class AudioPurgerTest {
     private suspend fun purge(fake: FakeSessions) = AudioPurger(fake, dir, now = { now }).purge()
 
     @Test
-    fun deletesAudioOlderThanSevenDaysAfterTheEndOfRecording() = runTest {
-        val old = wav("old.wav", modifiedAt = now - 8 * day)
-        val fake = FakeSessions(listOf(session("old", endedAt = now - 7 * day - 1)))
+    fun deletesAudioOlder48HoursAfterTheEndOfRecording() = runTest {
+        val old = wav("old.wav", modifiedAt = now - 3 * day)
+        val fake = FakeSessions(listOf(session("old", endedAt = now - 48 * hour - 1)))
 
         val report = purge(fake)
 
@@ -72,10 +72,10 @@ class AudioPurgerTest {
     }
 
     @Test
-    fun keepsAudioYoungerThanSevenDays() = runTest {
+    fun keepsAudioYoungerThan48Hours() = runTest {
         val recent = wav("recent.wav")
-        // Started 8 days ago but ended 6 days ago: retention counts from the end.
-        val fake = FakeSessions(listOf(session("recent", endedAt = now - 6 * day, startedAt = now - 8 * day)))
+        // Started 50 h ago but ended 47 h ago: retention counts from the end.
+        val fake = FakeSessions(listOf(session("recent", endedAt = now - 47 * hour, startedAt = now - 50 * hour)))
 
         val report = purge(fake)
 
@@ -132,13 +132,15 @@ class AudioPurgerTest {
     @Test
     fun deletesUnreferencedWavOnlyAfterTheRetentionPeriod() = runTest {
         // Left behind by a capture interrupted before the session was completed.
-        val crashed = wav("crashed.wav", modifiedAt = now - 8 * day)
+        val crashed = wav("crashed.wav", modifiedAt = now - 49 * hour)
+        val recentCrash = wav("recentCrash.wav", modifiedAt = now - 47 * hour)
         val inProgress = wav("live.wav", modifiedAt = now - 1000)
         val notAudio = File(dir, "notes.txt").apply { writeText("x"); setLastModified(now - 30 * day) }
 
         val report = purge(FakeSessions(emptyList()))
 
         assertFalse(crashed.exists())
+        assertTrue(recentCrash.exists())
         assertTrue(inProgress.exists())
         assertTrue(notAudio.exists())
         assertEquals(1, report.orphanFiles)
@@ -146,17 +148,17 @@ class AudioPurgerTest {
 
     @Test
     fun keepsReferencedWavWhateverItsFileDate() = runTest {
-        // Old file date but recording ended 2 days ago (e.g. restored or copied file).
+        // Old file date but recording ended 1 day ago (e.g. restored or copied file).
         val kept = wav("kept.wav", modifiedAt = now - 30 * day)
 
-        purge(FakeSessions(listOf(session("kept", endedAt = now - 2 * day))))
+        purge(FakeSessions(listOf(session("kept", endedAt = now - day))))
 
         assertTrue(kept.exists())
     }
 
     @Test
-    fun deletionDueAtIsSevenDaysAfterTheEnd() {
-        assertEquals(now + 7 * day, AudioPurgeWorker.deletionDueAt(session("s", endedAt = now)))
+    fun deletionDueAtIs48HoursAfterTheEnd() {
+        assertEquals(now + 48 * hour, AudioPurgeWorker.deletionDueAt(session("s", endedAt = now)))
         assertNull(AudioPurgeWorker.deletionDueAt(session("s", endedAt = null, startedAt = null)))
     }
 }

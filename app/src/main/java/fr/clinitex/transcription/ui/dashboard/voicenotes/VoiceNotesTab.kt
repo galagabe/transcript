@@ -44,6 +44,7 @@ import fr.clinitex.transcription.ui.components.ScreenBackground
 import fr.clinitex.transcription.ui.components.ScreenHeader
 import fr.clinitex.transcription.ui.components.brandUpper
 import fr.clinitex.transcription.ui.dashboard.DisplayFormat
+import fr.clinitex.transcription.ui.dashboard.SummaryRecoveryBanner
 import fr.clinitex.transcription.ui.dashboard.meetings.SessionRow
 import fr.clinitex.transcription.ui.recording.ConsentDialog
 import java.text.SimpleDateFormat
@@ -104,6 +105,7 @@ fun VoiceNotesTab(
                 intro = "Dictez une consigne, une idée ou un retour de visite. Clindy le transcrit puis le met au propre.",
             )
         }
+        item { SummaryRecoveryBanner(notes, Modifier.padding(top = 14.dp)) }
 
         item {
             BrandCard(

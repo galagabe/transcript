@@ -274,7 +274,7 @@ class MeetingRecorderService : Service() {
                 }
             }
 
-            // Clinitex rule: the WAV is always kept, then deleted after 7 days by AudioPurgeWorker.
+            // Clinitex rule: the WAV is always kept, then deleted after 48 h by AudioPurgeWorker.
             releaseVad()
 
             serviceScope.launch {
@@ -416,7 +416,7 @@ class MeetingRecorderService : Service() {
         audioRecord = record
 
         // The WAV feeds diarization at stop and is kept for playback; AudioPurgeWorker
-        // deletes it 7 days after the end of the recording (Clinitex retention rule).
+        // deletes it 48 h after the end of the recording (Clinitex retention rule).
         wavFile = File(filesDir, "meetings/${sessionId}.wav").apply {
             parentFile?.mkdirs()
             writeWavHeader(this, 0)

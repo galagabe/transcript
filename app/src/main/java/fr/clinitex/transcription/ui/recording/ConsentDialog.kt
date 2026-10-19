@@ -41,7 +41,7 @@ fun ConsentDialog(
 ) {
     // Unticked every time: consent is confirmed per recording, never remembered.
     var informed by remember { mutableStateOf(false) }
-    val retentionDays = AudioPurgeWorker.RETENTION_DAYS
+    val retentionHours = AudioPurgeWorker.RETENTION_HOURS
     val intro = if (isVoiceNote) {
         "Si d’autres personnes sont présentes, prévenez-les que vous enregistrez."
     } else {
@@ -62,7 +62,7 @@ fun ConsentDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    "$intro L’audio est supprimé automatiquement au bout de $retentionDays jours.",
+                    "$intro L’audio est supprimé automatiquement au bout de $retentionHours h.",
                     style = ClinitexType.body(14.sp),
                     color = ClinitexPalette.InkSoft,
                 )

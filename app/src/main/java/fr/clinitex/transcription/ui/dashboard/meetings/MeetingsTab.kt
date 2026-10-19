@@ -54,6 +54,7 @@ import fr.clinitex.transcription.ui.components.TileStyle
 import fr.clinitex.transcription.ui.components.brandUpper
 import fr.clinitex.transcription.ui.dashboard.DisplayFormat
 import fr.clinitex.transcription.ui.dashboard.SessionStatus
+import fr.clinitex.transcription.ui.dashboard.SummaryRecoveryBanner
 import fr.clinitex.transcription.ui.recording.ConsentDialog
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -116,6 +117,7 @@ fun MeetingsTab(
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 16.dp),
     ) {
         item { ScreenHeader("Réunions") }
+        item { SummaryRecoveryBanner(meetings, Modifier.padding(top = 14.dp)) }
 
         // ── Start a new meeting ─────────────────────────────────────────
         item {
