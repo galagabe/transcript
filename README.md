@@ -101,8 +101,8 @@ L'état de la synthèse est visible sur chaque élément : **en attente de rése
 
 > 🔒 **Confidentialité** : l'audio et la transcription restent sur le
 > téléphone. Seul le texte part vers n8n au moment de la synthèse.
-> L'audio est **supprimé automatiquement 7 jours** après la fin de
-> l'enregistrement (purge quotidienne et à chaque lancement) ; la
+> L'audio est **supprimé automatiquement 48 h** après la fin de
+> l'enregistrement (purge toutes les heures et à chaque lancement) ; la
 > transcription et le compte rendu restent dans l'app.
 
 ## Configuration (développeur uniquement)
@@ -141,7 +141,7 @@ clinitex.deviceToken=…
   "manualNotes": "…",
   "transcript": "Intervenant 1 · 0:04\n…",
   "durationSec": 2710,
-  "appVersion": "1.0.0-beta"
+  "appVersion": "1.1.0-beta"
 }
 ```
 
@@ -192,7 +192,8 @@ clindy/
 | 3 | Intervenants nommables | ✅ |
 | 4 | Robustesse mémoire sur réunions longues + calibration des intervenants | ✅ (test d'1 h en conditions réelles à faire) |
 | — | Onglet Vocaux, charte Clinitex | ✅ |
-| 5 | Consentement avant enregistrement, suppression auto des audios après 7 jours, signature release, package `fr.clinitex.transcription` | ✅ (hébergement des modèles Parakeet : à décider) |
+| 5 | Consentement avant enregistrement, suppression auto des audios, signature release, package `fr.clinitex.transcription` | ✅ (hébergement des modèles Parakeet : à décider) |
+| 6 | Dictionnaire commun Clinitex (n8n), reprise automatique des synthèses + « Forcer la reconnexion », audio conservé 48 h | ✅ |
 
 > ℹ️ **Version bêta** : package `fr.clinitex.transcription`, release signée
 > avec la clé Clinitex. Distribution interne uniquement.
@@ -205,4 +206,4 @@ Muesli sont conservés, comme l'exige la licence.
 
 ---
 
-<p align="center"><sub>Clinitex — application interne · Clindy v1.0.0-beta</sub></p>
+<p align="center"><sub>Clinitex — application interne · Clindy v1.1.0-beta</sub></p>
