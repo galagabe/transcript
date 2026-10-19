@@ -585,7 +585,8 @@ class MeetingRecorderService : Service() {
         }
         if (store.isCustomDictionaryEnabled) {
             processed = kotlinx.coroutines.runBlocking {
-                fr.clinitex.transcription.utils.CustomWordMatcher.apply(processed, store.getCustomWords())
+                // Own words + common Clinitex words (lot 6a).
+                fr.clinitex.transcription.utils.CustomWordMatcher.apply(processed, store.getDictionaryWords())
             }
         }
         return processed.trim()

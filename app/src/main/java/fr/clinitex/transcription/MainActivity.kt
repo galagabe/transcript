@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import fr.clinitex.transcription.data.SharedStore
+import fr.clinitex.transcription.dictionary.CommonDictionaryWorker
 import fr.clinitex.transcription.engine.SherpaRecognizerHolder
 import fr.clinitex.transcription.meetings.AudioPurgeWorker
 import fr.clinitex.transcription.model.ModelManager
@@ -42,6 +43,8 @@ class MainActivity : ComponentActivity() {
     super.onCreate(savedInstanceState)
     // Lot 5: audio kept 7 days — purge now, then once a day.
     AudioPurgeWorker.schedule(applicationContext)
+    // Lot 6a: common Clinitex dictionary — download when online, then every 12 h.
+    CommonDictionaryWorker.schedule(applicationContext)
 
     // Light-only app: dark system-bar icons whatever the system dark mode
     // (switched to light icons below while the full-blue recording screen shows).

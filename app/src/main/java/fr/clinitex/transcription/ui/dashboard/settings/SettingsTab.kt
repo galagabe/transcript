@@ -28,6 +28,11 @@ import androidx.compose.ui.unit.sp
 import fr.clinitex.transcription.audio.AudioInputRouteManager
 import fr.clinitex.transcription.data.SharedStore
 import fr.clinitex.transcription.data.entity.CustomWord
+import fr.clinitex.transcription.dictionary.CommonDictionary
+import fr.clinitex.transcription.dictionary.CommonWord
+import fr.clinitex.transcription.dictionary.CommonDictionaryRepository
+import fr.clinitex.transcription.dictionary.CommonDictionaryWorker
+import fr.clinitex.transcription.dictionary.CommonWords
 import fr.clinitex.transcription.engine.SherpaRecognizerHolder
 import fr.clinitex.transcription.meetings.MeetingTemplate
 import fr.clinitex.transcription.model.ModelManager
@@ -53,6 +58,7 @@ import fr.clinitex.transcription.ui.components.StatusBadge
 import fr.clinitex.transcription.ui.components.TileStyle
 import fr.clinitex.transcription.ui.components.brandSwitchColors
 import fr.clinitex.transcription.ui.dashboard.BadgeTone
+import fr.clinitex.transcription.ui.dashboard.DisplayFormat
 import kotlinx.coroutines.launch
 
 /**
@@ -317,9 +323,16 @@ private fun DictionarySettings(store: SharedStore) {
     var entryReplacement by remember { mutableStateOf("") }
     var entryThreshold by remember { mutableStateOf(0.85f) }
 
+    val context = LocalContext.current
+    val commonDictionary by remember { CommonDictionaryRepository.flow(context) }.collectAsState()
+    var disabledCommon by remember { mutableStateOf(store.disabledCommonWords) }
+    var updateRequested by remember { mutableStateOf(false) }
+
     LaunchedEffect(Unit) {
         store.getCustomWordsFlow().collect { customWords = it }
     }
+    // A newly received list ends the "update requested" notice.
+    LaunchedEffect(commonDictionary?.fetchedAt) { updateRequested = false }
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         SettingsCard {
@@ -331,8 +344,8 @@ private fun DictionarySettings(store: SharedStore) {
                 onCheckedChange = { fillerEnabled = it; store.isFillerWordRemovalEnabled = it }
             )
             ToggleRow(
-                title = "Dictionnaire personnalisé",
-                subtitle = "Corrige automatiquement les termes reconnus de façon approximative.",
+                title = "Correction par le dictionnaire",
+                subtitle = "Corrige les termes reconnus de façon approximative : mots Clinitex et vos mots.",
                 checked = customDictEnabled,
                 onCheckedChange = { customDictEnabled = it; store.isCustomDictionaryEnabled = it }
             )
@@ -340,7 +353,7 @@ private fun DictionarySettings(store: SharedStore) {
 
         SettingsCard {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Box(modifier = Modifier.weight(1f)) { CardTitle("Mots personnalisés") }
+                Box(modifier = Modifier.weight(1f)) { CardTitle("Mes mots") }
                 PillButton(
                     "Ajouter",
                     onClick = { showAddDialog = true },
@@ -382,6 +395,26 @@ private fun DictionarySettings(store: SharedStore) {
                 }
             }
         }
+
+        // Own words first (the user's list and "Ajouter"), then the long shared list.
+        CommonWordsCard(
+            dictionary = commonDictionary,
+            disabledKeys = disabledCommon,
+            overriddenKeys = CommonWords.overriddenKeys(customWords),
+            updateRequested = updateRequested,
+            onToggle = { word, enabled ->
+                store.setCommonWordEnabled(word, enabled)
+                disabledCommon = store.disabledCommonWords
+            },
+            onRestoreAll = {
+                store.disabledCommonWords = emptySet()
+                disabledCommon = emptySet()
+            },
+            onUpdate = {
+                CommonDictionaryWorker.syncNow(context)
+                updateRequested = true
+            },
+        )
     }
 
     if (showAddDialog) {
@@ -443,6 +476,109 @@ private fun DictionarySettings(store: SharedStore) {
             dismissButton = {
                 PillButton("Annuler", onClick = { showAddDialog = false }, variant = PillVariant.OUTLINE, height = 44.dp, fontSize = 14.sp)
             }
+        )
+    }
+}
+
+/**
+ * Lot 6a: the shared Clinitex list as chips, one after the other. The cross
+ * switches a word off (it is never deleted); "Rétablir" brings them all back.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CommonWordsCard(
+    dictionary: CommonDictionary?,
+    disabledKeys: Set<String>,
+    overriddenKeys: Set<String>,
+    updateRequested: Boolean,
+    onToggle: (word: String, enabled: Boolean) -> Unit,
+    onRestoreAll: () -> Unit,
+    onUpdate: () -> Unit,
+) {
+    SettingsCard {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Box(modifier = Modifier.weight(1f)) { CardTitle("Mots communs Clinitex") }
+            PillButton(
+                "Mettre à jour",
+                onClick = onUpdate,
+                variant = PillVariant.OUTLINE,
+                icon = Icons.Default.Refresh,
+                height = 36.dp,
+                fontSize = 13.sp,
+            )
+        }
+
+        val status = when {
+            updateRequested -> "Mise à jour demandée : elle se fait dès que le téléphone a du réseau."
+            dictionary == null -> "Liste pas encore reçue : elle se télécharge dès que le téléphone a du réseau."
+            else -> "${dictionary.words.size} mot${if (dictionary.words.size > 1) "s" else ""} · mis à jour " +
+                DisplayFormat.relativeDayTime(dictionary.fetchedAt).replaceFirstChar { it.lowercase() }
+        }
+        Text(status, style = ClinitexType.body(12.sp, FontWeight.Normal, 17.sp), color = ClinitexPalette.Muted)
+        Text(
+            "Liste commune à tous les collaborateurs, tenue par Clinitex. Touchez la croix pour retirer un mot. Un mot en gris est remplacé par le même mot dans « Mes mots ».",
+            style = ClinitexType.body(13.sp, FontWeight.Normal, 19.sp),
+            color = ClinitexPalette.Muted,
+        )
+
+        val words = dictionary?.words.orEmpty()
+        val (retired, shown) = words.partition { CommonWords.key(it.word) in disabledKeys }
+        if (shown.isNotEmpty()) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                shown.forEach { word ->
+                    CommonWordChip(
+                        word = word,
+                        overridden = CommonWords.key(word.word) in overriddenKeys,
+                        onRemove = { onToggle(word.word, false) },
+                    )
+                }
+            }
+        }
+        if (retired.isNotEmpty()) {
+            Text(
+                "Rétablir ${if (retired.size > 1) "les ${retired.size} mots retirés" else "le mot retiré"}",
+                style = ClinitexType.body(13.sp, FontWeight.Bold, 19.sp),
+                color = ClinitexPalette.Blue,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(MuesliCorners.input))
+                    .clickable { onRestoreAll() }
+                    .padding(vertical = 6.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun CommonWordChip(
+    word: CommonWord,
+    overridden: Boolean,
+    onRemove: () -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .clip(CircleShape)
+            .background(ClinitexPalette.PaperTint)
+            .padding(start = 12.dp, end = 2.dp),
+    ) {
+        Text(
+            buildString {
+                append(word.word)
+                if (word.replacement != null) append(" → ").append(word.replacement)
+            },
+            style = ClinitexType.body(13.sp, FontWeight.Medium, 18.sp),
+            color = if (overridden) ClinitexPalette.Muted else ClinitexPalette.Ink,
+        )
+        RoundIconButton(
+            Icons.Default.Close,
+            "Retirer ${word.word}",
+            onRemove,
+            tint = ClinitexPalette.Muted,
+            iconSize = 16.dp,
         )
     }
 }

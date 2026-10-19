@@ -8,6 +8,8 @@ import fr.clinitex.transcription.data.entity.RecordingSession
 import fr.clinitex.transcription.data.entity.SpeakerName
 import fr.clinitex.transcription.data.entity.Transcript
 import fr.clinitex.transcription.data.entity.TranscriptSegment
+import fr.clinitex.transcription.dictionary.CommonDictionaryRepository
+import fr.clinitex.transcription.dictionary.CommonWords
 import kotlinx.coroutines.flow.Flow
 import java.util.UUID
 
@@ -31,6 +33,7 @@ class SharedStore(private val context: Context) {
         private const val KEY_SELECTED_MODEL_ID = "selected_model_id"
         private const val KEY_SPEAKER_LABELS = "speaker_labels"
         private const val KEY_MIC_PREFERENCE = "mic_preference" // "auto", "phone", "bluetooth", "usb"
+        private const val KEY_DISABLED_COMMON_WORDS = "disabled_common_words"
     }
 
     // Onboarding settings
@@ -84,6 +87,24 @@ class SharedStore(private val context: Context) {
     suspend fun insertCustomWord(word: CustomWord) = customWordDao.insertCustomWord(word)
     suspend fun updateCustomWord(word: CustomWord) = customWordDao.updateCustomWord(word)
     suspend fun deleteCustomWordById(id: String) = customWordDao.deleteCustomWordById(id)
+
+    // Common Clinitex dictionary (lot 6a): the user can switch a word off, not delete it.
+    /** [CommonWords.key]s of the common words this user switched off. */
+    var disabledCommonWords: Set<String>
+        get() = prefs.getStringSet(KEY_DISABLED_COMMON_WORDS, emptySet())?.toSet() ?: emptySet()
+        set(value) = prefs.edit().putStringSet(KEY_DISABLED_COMMON_WORDS, value).apply()
+
+    fun setCommonWordEnabled(word: String, enabled: Boolean) {
+        val key = CommonWords.key(word)
+        disabledCommonWords = if (enabled) disabledCommonWords - key else disabledCommonWords + key
+    }
+
+    /** Words applied to transcripts: own words, then the common words not switched off or replaced. */
+    suspend fun getDictionaryWords(): List<CustomWord> = CommonWords.effectiveWords(
+        personal = getCustomWords(),
+        common = CommonDictionaryRepository.current(context)?.words.orEmpty(),
+        disabledKeys = disabledCommonWords,
+    )
 
     // Dictation results
     fun getDictationResultsFlow(): Flow<List<DictationResult>> = dictationResultDao.getAllResultsFlow()

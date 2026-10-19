@@ -31,6 +31,8 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "CLINITEX_SUMMARY_URL", "\"${clinitexProp("clinitex.summaryUrl")}\"")
         buildConfigField("String", "CLINITEX_DEVICE_TOKEN", "\"${clinitexProp("clinitex.deviceToken")}\"")
+        // Lot 6a: shared Clinitex word list (same device token).
+        buildConfigField("String", "CLINITEX_DICTIONARY_URL", "\"${clinitexProp("clinitex.dictionaryUrl")}\"")
     }
 
     // Lot 5: Clinitex release key. Keystore and passwords come from local.properties
