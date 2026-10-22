@@ -81,9 +81,10 @@ vide.
 
 - **Type de Local** : uniquement Accueil, Circulation, Bureau, Salle de
   réunion, Vestiaire, Sanitaire, Open space, Réfectoire ou Vitrerie (un
-  couloir = Circulation, des WC = Sanitaire). Ce qui suit la catégorie va
-  dans **Prestations** : « bureau accueil » = Bureau + accueil, « bureau
-  secrétaire » = Bureau + secrétaire. Un local hors catégories garde son nom.
+  couloir = Circulation, des WC = Sanitaire). Le local tel que le commercial
+  l'a décrit est recopié en tête de **Prestations** : « bureau accueil » =
+  Bureau + « Bureau accueil », « couloir » = Circulation + « Couloir ». Un
+  local hors catégories garde son nom dans Type de Local.
 - **Fréquence** en code de l'outil de calcul : Q1 à Q5 = 1 à 5 passages par
   semaine (tous les jours = Q5), MENS = 1 fois par mois, TRIM = 1 fois par
   trimestre ; toute autre fréquence reste telle que dictée.

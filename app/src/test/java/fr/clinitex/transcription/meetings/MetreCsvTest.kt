@@ -33,45 +33,53 @@ class MetreCsvTest {
     fun `premises become one row per local in the tool's column order`() {
         val rows = MetreCsv.rows(notes)
         assertEquals(4, rows.size)
-        assertEquals(listOf("Q5", "A", "RDC", "Bureau", "Moquette", "", "12,5"), rows[0])
+        assertEquals(listOf("Q5", "A", "RDC", "Bureau", "Moquette", "Bureau", "12,5"), rows[0])
         // Words turned into the code, dash and "Rien de noté" emptied, "12.5 m²" with a decimal comma.
-        assertEquals(listOf("Q5", "A", "RDC", "Bureau", "Moquette", "", "12,5"), rows[1])
-        assertEquals(listOf("Q2", "", "", "Sanitaire", "Carrelage", "", "8"), rows[2])
-        // A surface that is not a number is kept as dictated; the rest of the type goes to Prestations.
-        assertEquals(listOf("", "", "", "Salle de réunion", "Parquet bois", "grande", "environ 40"), rows[3])
+        assertEquals(listOf("Q5", "A", "RDC", "Bureau", "Moquette", "Bureau", "12,5"), rows[1])
+        assertEquals(listOf("Q2", "", "", "Sanitaire", "Carrelage", "Sanitaires", "8"), rows[2])
+        // A surface that is not a number is kept as dictated; the premises as dictated go to Prestations.
+        assertEquals(listOf("", "", "", "Salle de réunion", "Parquet bois", "Salle de réunion; grande", "environ 40"), rows[3])
     }
 
     @Test
-    fun `type of premises keeps only the tool's category, the rest goes to Prestations`() {
+    fun `type of premises keeps the tool's category, Prestations the premises as dictated`() {
         val cases = mapOf(
-            "Bureau accueil" to ("Bureau" to "accueil"),
-            "Bureau secrétaire" to ("Bureau" to "secrétaire"),
-            "Bureaux" to ("Bureau" to ""),
-            "Couloir 1er étage" to ("Circulation" to "1er étage"),
-            "Sanitaires hommes" to ("Sanitaire" to "hommes"),
-            "WC" to ("Sanitaire" to ""),
-            "Open-space direction" to ("Open space" to "direction"),
-            "Salles de réunion" to ("Salle de réunion" to ""),
-            "Réfectoire" to ("Réfectoire" to ""),
-            "Vitrerie hall" to ("Vitrerie" to "hall"),
-            "Accueil" to ("Accueil" to ""),
-            // Not one of the categories: kept as dictated.
-            "Local archives" to ("Local archives" to ""),
-            "Bureautique" to ("Bureautique" to ""),
+            "Bureau accueil" to "Bureau",
+            "Bureau secrétaire" to "Bureau",
+            "Bureaux" to "Bureau",
+            "Couloir 1er étage" to "Circulation",
+            "Sanitaires hommes" to "Sanitaire",
+            "WC" to "Sanitaire",
+            "Open-space direction" to "Open space",
+            "Salles de réunion" to "Salle de réunion",
+            "Réfectoire" to "Réfectoire",
+            "Vitrerie hall" to "Vitrerie",
+            "Accueil" to "Accueil",
+            // Not one of the categories: no category, the name stays in Type de Local.
+            "Local archives" to null,
+            "Bureautique" to null,
         )
-        for ((dictated, expected) in cases) assertEquals(dictated, expected, MetreCsv.splitLocalType(dictated))
+        for ((dictated, expected) in cases) assertEquals(dictated, expected, MetreCsv.localCategory(dictated))
 
         val table = """
             | Fréquence | Batiment | Etage | Type de Local | Revêtement | Prestations | Surface |
             |---|---|---|---|---|---|---|
             | Q5 |  | RDC | Bureau accueil | Carrelage | vidage corbeilles | 15 |
             | Q5 |  | RDC | Bureau secrétaire | Moquette | secrétaire | 10 |
+            | Q5 |  | RDC | Bureau | Moquette | Bureau direction, vidage corbeilles | 12 |
+            | Q3 |  | RDC | Circulation | Thermoplastique | Couloir | 35 |
+            | MENS |  | SS | Local archives | Ciment |  | 20 |
         """.trimIndent()
         assertEquals(
             listOf(
-                listOf("Q5", "", "RDC", "Bureau", "Carrelage", "accueil, vidage corbeilles", "15"),
-                // Already in Prestations: not repeated.
-                listOf("Q5", "", "RDC", "Bureau", "Moquette", "secrétaire", "10"),
+                listOf("Q5", "", "RDC", "Bureau", "Carrelage", "Bureau accueil, vidage corbeilles", "15"),
+                // "secrétaire" is part of the dictated name: not repeated.
+                listOf("Q5", "", "RDC", "Bureau", "Moquette", "Bureau secrétaire", "10"),
+                // Claude already copied the dictated name: kept as is.
+                listOf("Q5", "", "RDC", "Bureau", "Moquette", "Bureau direction, vidage corbeilles", "12"),
+                // Category already in Type de Local, dictated name already in Prestations: no "Circulation, Couloir".
+                listOf("Q3", "", "RDC", "Circulation", "Thermoplastique", "Couloir", "35"),
+                listOf("MENS", "", "SS", "Local archives", "Ciment", "", "20"),
             ),
             MetreCsv.rows(table),
         )
@@ -125,15 +133,15 @@ class MetreCsvTest {
             |:--|--:|---|---|---|
             | Couloir | 30 | Thermoplastique | B | 1 |
         """.trimIndent()
-        assertEquals(listOf(listOf("", "B", "1", "Circulation", "Thermoplastique", "", "30")), MetreCsv.rows(moved))
+        assertEquals(listOf(listOf("", "B", "1", "Circulation", "Thermoplastique", "Couloir", "30")), MetreCsv.rows(moved))
     }
 
     @Test
     fun `csv is Excel FR ready, quoted where needed`() {
         val csv = MetreCsv.toCsv(MetreCsv.rows(notes))
         assertTrue(csv.startsWith("﻿Fréquence;Batiment;Etage;Type de Local;Revêtement;Prestations;Surface\r\n"))
-        assertTrue(csv.contains("\r\nQ5;A;RDC;Bureau;Moquette;;12,5\r\n"))
-        assertTrue(csv.contains("\r\n;;;Salle de réunion;Parquet bois;grande;environ 40\r\n"))
+        assertTrue(csv.contains("\r\nQ5;A;RDC;Bureau;Moquette;Bureau;12,5\r\n"))
+        assertTrue(csv.contains("\r\n;;;Salle de réunion;Parquet bois;\"Salle de réunion; grande\";environ 40\r\n"))
         // Separator or quotes inside a cell: quoted.
         assertEquals("\"a;b\";\"dit \"\"oui\"\"\"\r\n", MetreCsv.toCsv(listOf(listOf("a;b", "dit \"oui\"")), listOf("x", "y")).substringAfter("\r\n"))
         assertEquals(5, csv.trimEnd().split("\r\n").size)

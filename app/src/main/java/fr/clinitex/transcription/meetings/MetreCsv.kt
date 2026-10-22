@@ -12,8 +12,8 @@ import java.util.Locale
  * [MeetingTemplate.METRE] template into CSV files:
  *  - the premises, imported by the Clinitex costing tool ([COLUMNS]), with
  *    the frequency as a code (Q1…Q5, MENS, TRIM) and the type of premises
- *    reduced to the tool's categories ([LOCAL_TYPES]), the rest of what was
- *    dictated moving to Prestations;
+ *    reduced to the tool's categories ([LOCAL_TYPES]), the premises as
+ *    dictated being copied at the start of Prestations;
  *  - the sanitary equipment and consumables per premises, sent to the
  *    supplier ([EQUIPMENT_COLUMNS]).
  * Cells not dictated stay empty. Excel (French) format: `;` separator,
@@ -48,12 +48,13 @@ object MetreCsv {
                 else -> value
             }
         }.map { row ->
-            // "Bureau accueil" → Bureau, and "accueil" goes to Prestations.
-            val (category, rest) = splitLocalType(row[type])
-            if (category == row[type]) row
-            else row.toMutableList().apply {
+            // "Bureau accueil" → Bureau, and "Bureau accueil" as dictated goes to Prestations.
+            val category = localCategory(row[type]) ?: return@map row
+            // Type already reduced to its category by Claude: Prestations already holds the dictated name.
+            val alreadySplit = key(row[type]) == key(category) && row[prestations].isNotBlank()
+            row.toMutableList().apply {
                 set(type, category)
-                set(prestations, joinPrestations(rest, row[prestations]))
+                if (!alreadySplit) set(prestations, joinPrestations(row[type], row[prestations]))
             }
         }
     }
@@ -77,26 +78,25 @@ object MetreCsv {
     ).sortedByDescending { it.first.split(' ').size }
 
     /**
-     * Category of a "Type de Local" cell and what was dictated after it:
-     * "Bureau secrétaire" → (Bureau, secrétaire). A cell that starts with no
-     * known category is returned unchanged, with nothing left over.
+     * Category of a "Type de Local" cell ("Bureau secrétaire" → Bureau,
+     * "Couloir" → Circulation), or null when it starts with none of them.
      */
-    internal fun splitLocalType(value: String): Pair<String, String> {
+    internal fun localCategory(value: String): String? {
         val spoken = key(value, keepSpaces = true)
-        for ((form, category) in localTypeForms) {
-            if (spoken == form || spoken.startsWith("$form ")) {
-                val words = value.trim().split(Regex("[\\s\\-,;:/]+")).filter { it.isNotEmpty() }
-                return category to words.drop(form.split(' ').size).joinToString(" ")
-            }
-        }
-        return value to ""
+        return localTypeForms.firstOrNull { (form, _) -> spoken == form || spoken.startsWith("$form ") }?.second
     }
 
-    private fun joinPrestations(extra: String, prestations: String): String = when {
-        extra.isBlank() -> prestations
-        prestations.isBlank() -> extra
-        key(prestations, keepSpaces = true).contains(key(extra, keepSpaces = true)) -> prestations
-        else -> "$extra, $prestations"
+    /**
+     * Prestations starting with the premises as dictated ("Bureau accueil"),
+     * then what was already there; items already covered by the dictated name
+     * ("accueil") are not repeated, nor is the name if Claude already wrote it.
+     */
+    internal fun joinPrestations(local: String, prestations: String): String {
+        val name = local.trim()
+        val items = prestations.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+        if (name.isEmpty() || items.any { key(it, keepSpaces = true).contains(key(name, keepSpaces = true)) }) return prestations
+        val kept = items.filterNot { key(name, keepSpaces = true).contains(key(it, keepSpaces = true)) }
+        return (listOf(name) + kept).joinToString(", ")
     }
 
     /** Sanitary equipment, one row per item and premises in [EQUIPMENT_COLUMNS] order. */
