@@ -51,7 +51,7 @@ object MetreCsv {
             // "Bureau accueil" → Bureau, and "Bureau accueil" as dictated goes to Prestations.
             val category = localCategory(row[type]) ?: return@map row
             // Type already reduced to its category by Claude: Prestations already holds the dictated name.
-            val alreadySplit = key(row[type]) == key(category) && row[prestations].isNotBlank()
+            val alreadySplit = key(row[type]).trimEnd('s', 'x') == key(category).trimEnd('s', 'x') && row[prestations].isNotBlank()
             row.toMutableList().apply {
                 set(type, category)
                 if (!alreadySplit) set(prestations, joinPrestations(row[type], row[prestations]))
@@ -59,27 +59,75 @@ object MetreCsv {
         }
     }
 
-    /** Categories of the costing tool for "Type de Local" (Stéphane, 22/10/2026). */
-    val LOCAL_TYPES = listOf("Accueil", "Circulation", "Bureau", "Salle de réunion", "Vestiaire", "Sanitaire", "Open space", "Réfectoire", "Vitrerie")
-
-    /** Spoken forms (accents removed) → category, longest first. */
-    private val localTypeForms: List<Pair<String, String>> = listOf(
-        "accueil" to "Accueil", "accueils" to "Accueil",
-        "circulation" to "Circulation", "circulations" to "Circulation", "couloir" to "Circulation",
-        "couloirs" to "Circulation", "escalier" to "Circulation", "escaliers" to "Circulation",
-        "bureau" to "Bureau", "bureaux" to "Bureau",
-        "salle de reunion" to "Salle de réunion", "salle de reunions" to "Salle de réunion",
-        "salles de reunion" to "Salle de réunion", "salles de reunions" to "Salle de réunion",
-        "vestiaire" to "Vestiaire", "vestiaires" to "Vestiaire",
-        "sanitaire" to "Sanitaire", "sanitaires" to "Sanitaire", "toilettes" to "Sanitaire", "wc" to "Sanitaire",
-        "open space" to "Open space", "open spaces" to "Open space",
-        "refectoire" to "Réfectoire", "refectoires" to "Réfectoire",
-        "vitrerie" to "Vitrerie", "vitreries" to "Vitrerie",
-    ).sortedByDescending { it.first.split(' ').size }
+    /**
+     * Types of premises of the costing spreadsheet, written exactly as in it
+     * (list sent by Stéphane, 22/10/2026), so a copy-paste integrates as is.
+     */
+    val LOCAL_TYPES = listOf(
+        "ABORDS", "ACCUEIL", "AMPHITHEATRE", "ASCENSEURS", "BIBLIOTHEQUE", "BOXS DE RECEPTION", "BUREAUX",
+        "CIRCULATIONS", "COURS D'ECOLE", "DOUCHES", "ESCALIERS", "HALL D'ENTREE", "KIOSQUE", "LOCAL ARCHIVES",
+        "LOCAL CE", "LOCAL CONTAINERS", "LOCAL TECHNIQUES", "OPENSPACE", "PARKINGS", "PISCINE", "POSTE DE GARDE",
+        "REFECTOIRE", "SALLE DE CLASSE", "SALLE DE COURS", "SALLE DE FORMATION", "SALLE DE PAUSE", "SALLE DE REUNION",
+        "SALLE DE SPORT", "SALLE DES PROF", "SALLE INFORMATIQUE SERVEURS", "SANITAIRES", "SHOWROOM", "ENTREPOT",
+        "SURFACE DE VENTE", "TERRASSES", "VESTIAIRES", "VITRERIE",
+    )
 
     /**
-     * Category of a "Type de Local" cell ("Bureau secrétaire" → Bureau,
-     * "Couloir" → Circulation), or null when it starts with none of them.
+     * Spoken forms → type: each type itself, its singular or plural, and the
+     * obvious synonyms (« WC » → SANITAIRES, « couloir » → CIRCULATIONS,
+     * « cantine » → REFECTOIRE…). Compared without accents, case or
+     * apostrophes; longest first so « salle de réunion » wins over shorter forms.
+     */
+    private val localTypeForms: List<Pair<String, String>> = (
+        LOCAL_TYPES.map { it to it } + listOf(
+            "abord" to "ABORDS", "espaces exterieurs" to "ABORDS", "exterieurs" to "ABORDS",
+            "accueils" to "ACCUEIL",
+            "amphi" to "AMPHITHEATRE", "amphis" to "AMPHITHEATRE", "amphitheatres" to "AMPHITHEATRE",
+            "ascenseur" to "ASCENSEURS",
+            "bibliotheques" to "BIBLIOTHEQUE", "mediatheque" to "BIBLIOTHEQUE", "cdi" to "BIBLIOTHEQUE",
+            "box de reception" to "BOXS DE RECEPTION", "boxes de reception" to "BOXS DE RECEPTION",
+            "bureau" to "BUREAUX",
+            "circulation" to "CIRCULATIONS", "couloir" to "CIRCULATIONS", "couloirs" to "CIRCULATIONS",
+            "degagement" to "CIRCULATIONS", "degagements" to "CIRCULATIONS",
+            "cour d ecole" to "COURS D'ECOLE", "cour de recreation" to "COURS D'ECOLE", "cours de recreation" to "COURS D'ECOLE",
+            "douche" to "DOUCHES",
+            "escalier" to "ESCALIERS", "cage d escalier" to "ESCALIERS", "cages d escalier" to "ESCALIERS",
+            "hall" to "HALL D'ENTREE", "halls" to "HALL D'ENTREE", "hall d accueil" to "HALL D'ENTREE",
+            "kiosques" to "KIOSQUE",
+            "archives" to "LOCAL ARCHIVES", "salle d archives" to "LOCAL ARCHIVES", "salle des archives" to "LOCAL ARCHIVES",
+            "local du ce" to "LOCAL CE", "local comite d entreprise" to "LOCAL CE", "local cse" to "LOCAL CE", "local du cse" to "LOCAL CE",
+            "local container" to "LOCAL CONTAINERS", "local conteneurs" to "LOCAL CONTAINERS", "local conteneur" to "LOCAL CONTAINERS",
+            "local poubelles" to "LOCAL CONTAINERS", "local poubelle" to "LOCAL CONTAINERS", "local dechets" to "LOCAL CONTAINERS",
+            "local technique" to "LOCAL TECHNIQUES", "locaux techniques" to "LOCAL TECHNIQUES",
+            "open space" to "OPENSPACE", "open spaces" to "OPENSPACE", "openspaces" to "OPENSPACE",
+            "parking" to "PARKINGS",
+            "piscines" to "PISCINE",
+            "postes de garde" to "POSTE DE GARDE",
+            "refectoires" to "REFECTOIRE", "cantine" to "REFECTOIRE", "cantines" to "REFECTOIRE",
+            "salle de classes" to "SALLE DE CLASSE", "salles de classe" to "SALLE DE CLASSE", "classe" to "SALLE DE CLASSE", "classes" to "SALLE DE CLASSE",
+            "salles de cours" to "SALLE DE COURS",
+            "salles de formation" to "SALLE DE FORMATION",
+            "salles de pause" to "SALLE DE PAUSE",
+            "salle de reunions" to "SALLE DE REUNION", "salles de reunion" to "SALLE DE REUNION", "salles de reunions" to "SALLE DE REUNION",
+            "salles de sport" to "SALLE DE SPORT", "gymnase" to "SALLE DE SPORT",
+            "salle des profs" to "SALLE DES PROF", "salle des professeurs" to "SALLE DES PROF",
+            "salle informatique" to "SALLE INFORMATIQUE SERVEURS", "salle serveurs" to "SALLE INFORMATIQUE SERVEURS",
+            "salle des serveurs" to "SALLE INFORMATIQUE SERVEURS", "salle serveur" to "SALLE INFORMATIQUE SERVEURS",
+            "local serveur" to "SALLE INFORMATIQUE SERVEURS", "local serveurs" to "SALLE INFORMATIQUE SERVEURS",
+            "sanitaire" to "SANITAIRES", "toilettes" to "SANITAIRES", "wc" to "SANITAIRES",
+            "showrooms" to "SHOWROOM",
+            "entrepots" to "ENTREPOT",
+            "surfaces de vente" to "SURFACE DE VENTE",
+            "terrasse" to "TERRASSES",
+            "vestiaire" to "VESTIAIRES",
+            "vitres" to "VITRERIE", "vitreries" to "VITRERIE",
+        )
+    ).map { (form, type) -> key(form, keepSpaces = true) to type }
+        .sortedByDescending { it.first.split(' ').size }
+
+    /**
+     * Type of a "Type de Local" cell ("Bureau secrétaire" → BUREAUX,
+     * "Couloir" → CIRCULATIONS), or null when it starts with none of them.
      */
     internal fun localCategory(value: String): String? {
         val spoken = key(value, keepSpaces = true)

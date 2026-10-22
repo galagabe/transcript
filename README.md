@@ -79,12 +79,20 @@ commercial dicte seul (pas de séparation des intervenants) les locaux d'un
 site. Claude range chaque local sur une ligne ; ce qui n'est pas dicté reste
 vide.
 
-- **Type de Local** : uniquement Accueil, Circulation, Bureau, Salle de
-  réunion, Vestiaire, Sanitaire, Open space, Réfectoire ou Vitrerie (un
-  couloir = Circulation, des WC = Sanitaire). Le local tel que le commercial
-  l'a décrit est recopié en tête de **Prestations** : « bureau accueil » =
-  Bureau + « Bureau accueil », « couloir » = Circulation + « Couloir ». Un
-  local hors catégories garde son nom dans Type de Local.
+- **Type de Local** : uniquement l'un des 37 types de la feuille de calcul,
+  écrit exactement comme elle (pour un copier-coller direct) : ABORDS,
+  ACCUEIL, AMPHITHEATRE, ASCENSEURS, BIBLIOTHEQUE, BOXS DE RECEPTION, BUREAUX,
+  CIRCULATIONS, COURS D'ECOLE, DOUCHES, ESCALIERS, HALL D'ENTREE, KIOSQUE,
+  LOCAL ARCHIVES, LOCAL CE, LOCAL CONTAINERS, LOCAL TECHNIQUES, OPENSPACE,
+  PARKINGS, PISCINE, POSTE DE GARDE, REFECTOIRE, SALLE DE CLASSE, SALLE DE
+  COURS, SALLE DE FORMATION, SALLE DE PAUSE, SALLE DE REUNION, SALLE DE
+  SPORT, SALLE DES PROF, SALLE INFORMATIQUE SERVEURS, SANITAIRES, SHOWROOM,
+  ENTREPOT, SURFACE DE VENTE, TERRASSES, VESTIAIRES, VITRERIE. Rapprochements
+  évidents : couloir = CIRCULATIONS, WC = SANITAIRES, cantine = REFECTOIRE,
+  gymnase = SALLE DE SPORT, local poubelles = LOCAL CONTAINERS. Le local tel
+  que le commercial l'a décrit est recopié en tête de **Prestations** :
+  « bureau accueil » = BUREAUX + « Bureau accueil ». Un local sans type
+  approchant garde son nom dans Type de Local (à reprendre à la main).
 - **Fréquence** en code de l'outil de calcul : Q1 à Q5 = 1 à 5 passages par
   semaine (tous les jours = Q5), MENS = 1 fois par mois, TRIM = 1 fois par
   trimestre ; toute autre fréquence reste telle que dictée.
@@ -259,6 +267,7 @@ clindy/
 | 7 | Variante Voxtral (transcription en ligne par tranches de 10 min), dictionnaire plus strict sur les mots courts | ✅ (calibrage du raccord sur de vrais RDV à poursuivre) |
 | 8 | Type de réunion **Métré** avec export CSV pour l'outil de calcul, synthèse par **Claude Sonnet** | ✅ (1.3.0-beta ; import du CSV dans l'outil de calcul à valider) |
 | 9 | Métré dans l'onglet Vocaux, fréquences en codes (Q1…Q5, MENS, TRIM), types de local de l'outil de calcul, fichier des équipements sanitaires | ✅ (1.4.0-beta) |
+| 10 | Métré : les 37 types de local de la feuille de calcul, écrits à l'identique | ✅ (à publier) |
 
 > ℹ️ **Version bêta** : package `fr.clinitex.transcription`, release signée
 > avec la clé Clinitex. Distribution interne uniquement.

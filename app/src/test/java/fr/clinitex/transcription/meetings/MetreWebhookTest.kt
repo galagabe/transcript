@@ -37,7 +37,9 @@ class MetreWebhookTest {
             d'essuie-mains et un distributeur de papier toilette. Le couloir, thermoplastique, 35 mètres carrés, trois fois par
             semaine. Premier étage : une salle de réunion de 40 mètres carrés en parquet bois, une fois par semaine. Les sanitaires
             du premier, 6 mètres carrés, carrelage, tous les jours, avec un désodorisant. Les vitres du hall, une fois par trimestre.
-            Le local archives, 20 mètres carrés, ciment, une fois par mois. Accès par badge, le client veut un passage avant 8 heures.
+            Le local archives, 20 mètres carrés, ciment, une fois par mois. Le hall d'entrée, 30 mètres carrés, carrelage, tous les jours.
+            Le local poubelles, 6 mètres carrés, une fois par semaine. La cantine du personnel, 50 mètres carrés, thermoplastique, tous les
+            jours. Le local ménage, 4 mètres carrés. Accès par badge, le client veut un passage avant 8 heures.
         """.trimIndent().replace("\n", " ")
 
         val response = client.summarize(
