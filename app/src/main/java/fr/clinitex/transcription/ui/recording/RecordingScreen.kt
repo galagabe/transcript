@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -148,8 +149,10 @@ fun RecordingScreen() {
                     )
                 }
 
+                val online = controller.isOnlineTranscription
                 LiveTranscriptCard(
                     text = controller.liveTranscript,
+                    online = online,
                     modifier = Modifier.padding(top = 32.dp),
                 )
 
@@ -158,9 +161,10 @@ fun RecordingScreen() {
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.padding(top = 16.dp),
                 ) {
-                    Icon(Icons.Outlined.Lock, contentDescription = null, tint = ClinitexPalette.Paper, modifier = Modifier.size(18.dp))
+                    Icon(if (online) Icons.Outlined.Cloud else Icons.Outlined.Lock, contentDescription = null, tint = ClinitexPalette.Paper, modifier = Modifier.size(18.dp))
                     Text(
-                        "Transcription sur le téléphone, aucun réseau nécessaire",
+                        if (online) "Transcription en ligne par Mistral (Voxtral), envoi dès que le réseau est là"
+                        else "Transcription sur le téléphone, aucun réseau nécessaire",
                         style = ClinitexType.body(13.sp, FontWeight.Normal, 18.sp),
                         color = ClinitexPalette.Paper.copy(alpha = 0.78f),
                     )
@@ -170,7 +174,8 @@ fun RecordingScreen() {
             Spacer(Modifier.height(16.dp))
             if (finalizing) {
                 Text(
-                    if (voiceNote) "Transcription de la fin de la dictée…"
+                    if (controller.isOnlineTranscription) "Envoi de la fin de l’enregistrement…"
+                    else if (voiceNote) "Transcription de la fin de la dictée…"
                     else "Transcription de l’audio restant, puis séparation des intervenants…",
                     style = ClinitexType.body(14.sp, FontWeight.Medium, 20.sp),
                     color = ClinitexPalette.Paper,
@@ -216,7 +221,7 @@ fun RecordingScreen() {
 }
 
 @Composable
-private fun LiveTranscriptCard(text: String, modifier: Modifier = Modifier) {
+private fun LiveTranscriptCard(text: String, online: Boolean, modifier: Modifier = Modifier) {
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier
@@ -224,9 +229,12 @@ private fun LiveTranscriptCard(text: String, modifier: Modifier = Modifier) {
             .background(ClinitexPalette.Paper, RoundedCornerShape(18.dp))
             .padding(horizontal = 18.dp, vertical = 16.dp),
     ) {
-        Eyebrow("Transcription en direct", size = 11.sp)
+        Eyebrow(if (online) "Transcription en ligne" else "Transcription en direct", size = 11.sp)
         Text(
-            liveTail(text).ifEmpty { "Le texte apparaît ici au fil de la parole, après chaque pause." },
+            liveTail(text).ifEmpty {
+                if (online) "L’audio part par tranches de 10 minutes. Le texte sera disponible peu après l’arrêt, une fois le téléphone connecté."
+                else "Le texte apparaît ici au fil de la parole, après chaque pause."
+            },
             style = ClinitexType.body(14.sp, FontWeight.Normal, 22.sp),
             color = if (text.isBlank()) ClinitexPalette.Muted else ClinitexPalette.InkSoft,
             maxLines = 5,

@@ -35,7 +35,22 @@ class SharedStore(private val context: Context) {
         private const val KEY_SPEAKER_LABELS = "speaker_labels"
         private const val KEY_MIC_PREFERENCE = "mic_preference" // "auto", "phone", "bluetooth", "usb"
         private const val KEY_DISABLED_COMMON_WORDS = "disabled_common_words"
+        private const val KEY_TRANSCRIPTION_ENGINE = "transcription_engine"
+
+        /** Transcription on the phone (sherpa-onnx + Parakeet v3), the default. */
+        const val ENGINE_PARAKEET = "parakeet"
+        /** Online transcription by Mistral Voxtral through the n8n webhook, 10-minute tranches. */
+        const val ENGINE_VOXTRAL = "voxtral"
     }
+
+    /** [ENGINE_PARAKEET] or [ENGINE_VOXTRAL] (Réglages › Modèle de transcription). */
+    var transcriptionEngine: String
+        get() = prefs.getString(KEY_TRANSCRIPTION_ENGINE, ENGINE_PARAKEET) ?: ENGINE_PARAKEET
+        set(value) = prefs.edit().putString(KEY_TRANSCRIPTION_ENGINE, value).apply()
+
+    /** Voxtral chosen and the build has its webhook URL. */
+    val usesVoxtral: Boolean
+        get() = transcriptionEngine == ENGINE_VOXTRAL && fr.clinitex.transcription.BuildConfig.CLINITEX_TRANSCRIPTION_URL.isNotBlank()
 
     // Onboarding settings
     var isOnboardingCompleted: Boolean
@@ -150,10 +165,10 @@ class SharedStore(private val context: Context) {
         speakerDao.deleteSegments(session.id)
         speakerDao.deleteSpeakerNames(session.id)
         clearSummaryFailure(session.id)
-        session.audioFileName?.let { name ->
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                java.io.File(context.filesDir, "meetings/$name").delete()
-            }
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            session.audioFileName?.let { name -> java.io.File(context.filesDir, "meetings/$name").delete() }
+            // Voxtral variant: tranches not yet assembled.
+            java.io.File(context.filesDir, "voxtral/${session.id}").deleteRecursively()
         }
         recordingSessionDao.deleteSession(session)
     }

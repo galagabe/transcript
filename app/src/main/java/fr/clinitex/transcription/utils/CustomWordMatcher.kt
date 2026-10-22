@@ -7,6 +7,16 @@ import kotlin.math.min
 
 object CustomWordMatcher {
 
+    /**
+     * Dictionary words up to this length are only replaced when heard
+     * exactly: Jaro-Winkler rates short words far too close ("est" vs ESAT
+     * 0.93, "ont" vs Onet 0.93, above the 0.9 threshold of the common list).
+     */
+    const val FUZZY_MIN_LENGTH = 6
+
+    /** Approximate matches must also be of a similar length (plural, one letter heard wrong). */
+    const val FUZZY_MAX_LENGTH_GAP = 2
+
     private class Entry(
         val replacement: String,
         val matchingThreshold: Double,
@@ -41,7 +51,12 @@ object CustomWordMatcher {
 
     private val boundaryPunctuation = ".,!?;:\"'()[]{}".toSet()
 
-    fun apply(text: String, customWords: List<CustomWord>): String {
+    /**
+     * @param fuzzy false: exact words only (case and casing fixed), no
+     *   approximate matching — the Voxtral variant, whose recognizer already
+     *   receives the dictionary.
+     */
+    fun apply(text: String, customWords: List<CustomWord>, fuzzy: Boolean = true): String {
         if (text.isEmpty() || customWords.isEmpty()) return text
 
         val entries = customWords
@@ -66,7 +81,8 @@ object CustomWordMatcher {
                 words = words,
                 startingAt = index,
                 tokenCounts = tokenCounts,
-                entriesByTokenCount = entriesByTokenCount
+                entriesByTokenCount = entriesByTokenCount,
+                fuzzy = fuzzy,
             )
 
             if (match == null) {
@@ -86,7 +102,8 @@ object CustomWordMatcher {
         words: List<String>,
         startingAt: Int,
         tokenCounts: List<Int>,
-        entriesByTokenCount: Map<Int, List<Entry>>
+        entriesByTokenCount: Map<Int, List<Entry>>,
+        fuzzy: Boolean,
     ): MatchResult? {
         for (count in tokenCounts) {
             if (count <= 0 || startingAt + count > words.size) continue
@@ -110,6 +127,7 @@ object CustomWordMatcher {
             }
 
             // Check fuzzy similarity match
+            if (!fuzzy) continue
             var bestEntry: Entry? = null
             var bestScore = 0.0
             for (entry in entries) {
@@ -144,15 +162,24 @@ object CustomWordMatcher {
         if (candidateTokens.size != entry.tokens.size) return null
 
         if (entry.tokens.size == 1) {
-            val score = jaroWinklerSimilarity(candidateTokens[0], entry.tokens[0])
+            val score = tokenSimilarity(candidateTokens[0], entry.tokens[0])
             return if (score >= entry.matchingThreshold) score else null
         }
 
         val tokenScores = candidateTokens.zip(entry.tokens).map { (c, e) ->
-            jaroWinklerSimilarity(c, e)
+            tokenSimilarity(c, e)
         }
         if (!tokenScores.all { it >= entry.matchingThreshold }) return null
         return tokenScores.average()
+    }
+
+    /** 1 for the same word; Jaro-Winkler only for a long dictionary word
+     * against a word of similar length, 0 otherwise. */
+    private fun tokenSimilarity(candidate: String, entry: String): Double = when {
+        candidate == entry -> 1.0
+        entry.length < FUZZY_MIN_LENGTH -> 0.0
+        kotlin.math.abs(candidate.length - entry.length) > FUZZY_MAX_LENGTH_GAP -> 0.0
+        else -> jaroWinklerSimilarity(candidate, entry)
     }
 
     private fun tokenParts(token: String): TokenParts? {

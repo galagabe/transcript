@@ -29,6 +29,12 @@ import fr.clinitex.transcription.engine.SherpaRecognizerHolder
 import fr.clinitex.transcription.model.ModelManager
 import fr.clinitex.transcription.model.SpeechModels
 import fr.clinitex.transcription.summaries.SummaryWorker
+import fr.clinitex.transcription.utils.TranscriptPostProcessor
+import fr.clinitex.transcription.voxtral.VoxtralClient
+import fr.clinitex.transcription.voxtral.VoxtralFinisher
+import fr.clinitex.transcription.voxtral.VoxtralTrancheStore
+import fr.clinitex.transcription.voxtral.VoxtralTranches
+import fr.clinitex.transcription.voxtral.VoxtralWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -109,6 +115,14 @@ class MeetingRecorderService : Service() {
     private val transcriptParts = mutableListOf<SpeakerLabeler.TimedText>()
     private val decodeBusy = AtomicBoolean(false)
 
+    // Voxtral variant (Réglages › Modèle de transcription): no on-device
+    // decoding, the WAV is sent to Mistral in 10-minute tranches instead.
+    @Volatile
+    private var useVoxtral = false
+    private var diarizeTranches = false
+    /** Tranches [0, tranchesEnqueued) are already in WorkManager. */
+    private var tranchesEnqueued = 0
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
@@ -139,8 +153,9 @@ class MeetingRecorderService : Service() {
     private fun startRecording(id: String, title: String, templateId: String, kind: String, consentAt: Long?) {
         if (capturing.get()) return
 
+        useVoxtral = store.usesVoxtral
         val selectedModel = SpeechModels.selected(this)
-        if (!ModelManager(this, selectedModel).isDownloaded()) {
+        if (!useVoxtral && !ModelManager(this, selectedModel).isDownloaded()) {
             failSession(id, title, templateId, kind, consentAt, "Le modèle ${selectedModel.shortName} n’est pas téléchargé.")
             return
         }
@@ -157,7 +172,10 @@ class MeetingRecorderService : Service() {
             samplesCaptured = 0L
         }
         finishedChunks.clear()
-        vad = try {
+        // Voice notes are a single speaker: never diarized.
+        diarizeTranches = kind != RecordingSession.KIND_VOICE_NOTE && store.speakerLabelsEnabled
+        tranchesEnqueued = 0
+        vad = if (useVoxtral) null else try {
             Vad(
                 assetManager = assets,
                 config = VadModelConfig(
@@ -188,7 +206,7 @@ class MeetingRecorderService : Service() {
                     title = title,
                     startedAt = startedAtMs,
                     phase = "recording",
-                    engineIdentifier = selectedModel.id,
+                    engineIdentifier = if (useVoxtral) VoxtralClient.MODEL_ID else selectedModel.id,
                     templateId = templateId,
                     consentAt = consentAt,
                 )
@@ -196,11 +214,11 @@ class MeetingRecorderService : Service() {
         }
 
         startForegroundWithNotification(title)
-        MeetingRecordingController.onCaptureStarted(id, title, kind, templateId)
+        MeetingRecordingController.onCaptureStarted(id, title, kind, templateId, online = useVoxtral)
 
         try {
             // Warm the recognizer before opening the mic.
-            decodeExecutor.execute {
+            if (!useVoxtral) decodeExecutor.execute {
                 try {
                     SherpaRecognizerHolder.get(applicationContext)
                 } catch (t: Throwable) {
@@ -226,6 +244,11 @@ class MeetingRecorderService : Service() {
             } catch (_: InterruptedException) {
             }
             AudioInputRouteManager(applicationContext).stopBluetoothSco(activeMicPref)
+
+            if (useVoxtral) {
+                finishVoxtralRecording(discard)
+                return@execute
+            }
 
             if (!discard) {
                 // Flush trailing speech out of the VAD, then rotate any
@@ -324,6 +347,56 @@ class MeetingRecorderService : Service() {
                 teardown()
             }
         }
+    }
+
+    /**
+     * Voxtral variant, at stop (on decodeExecutor): records the final length,
+     * queues the tranches still to send and leaves the session "transcribing";
+     * [VoxtralFinisher] writes the transcript once every tranche is back.
+     */
+    private fun finishVoxtralRecording(discard: Boolean) {
+        closeWav()
+        val id = sessionId
+        val endedAt = System.currentTimeMillis()
+        val audioName = wavFile?.name
+        if (id != null) {
+            if (discard) {
+                VoxtralWorker.cancel(applicationContext, id)
+            } else {
+                val total = synchronized(lock) { samplesCaptured }
+                VoxtralWorker.trancheStore(applicationContext, id)
+                    .saveFinal(VoxtralTrancheStore.Final(total, diarizeTranches))
+                enqueueRecordedTranches(final = true)
+            }
+        }
+        serviceScope.launch {
+            if (id != null) {
+                store.getRecordingSessionById(id)?.let { existing ->
+                    if (discard) {
+                        store.updateRecordingSession(existing.copy(phase = "cancelled", endedAt = endedAt))
+                        wavFile?.delete()
+                    } else {
+                        store.updateRecordingSession(
+                            existing.copy(phase = "transcribing", endedAt = endedAt, audioFileName = audioName)
+                        )
+                        // A recording too short for any tranche is finished right away.
+                        VoxtralFinisher.tryFinish(applicationContext, id)
+                    }
+                }
+            }
+            MeetingRecordingController.onFinished()
+            teardown()
+        }
+    }
+
+    /** Voxtral variant: queues every tranche recorded so far (all of them when [final]). */
+    private fun enqueueRecordedTranches(final: Boolean) {
+        val id = sessionId ?: return
+        val total = synchronized(lock) { samplesCaptured }
+        val ready = VoxtralTranches.plan(total, final).filter { it.index >= tranchesEnqueued }
+        if (ready.isEmpty()) return
+        VoxtralWorker.enqueue(applicationContext, id, ready, diarizeTranches)
+        tranchesEnqueued = ready.last().index + 1
     }
 
     /** Runs diarization on the recorded WAV and gives each decoded chunk its
@@ -443,7 +516,10 @@ class MeetingRecorderService : Service() {
                 }
 
                 val v = vad
-                if (v != null) {
+                if (useVoxtral) {
+                    // The WAV already holds these samples: full tranches can leave now.
+                    enqueueRecordedTranches(final = false)
+                } else if (v != null) {
                     try {
                         v.acceptWaveform(frame)
                         drainVadSegments(v)
@@ -470,7 +546,7 @@ class MeetingRecorderService : Service() {
                         }
                     }
                 }
-                scheduleChunkDecode()
+                if (!useVoxtral) scheduleChunkDecode()
 
                 val elapsedSec = ((System.currentTimeMillis() - startedAtMs) / 1000L).toInt()
                 val now = System.currentTimeMillis()
@@ -500,15 +576,18 @@ class MeetingRecorderService : Service() {
     }
 
     /** Pops every completed speech segment out of the VAD into the decode
-     * queue. Must be called after acceptWaveform/flush. */
+     * queue, re-cut to 30 s at most ([SegmentSplitter]: Silero's
+     * maxSpeechDuration lets longer ones through on continuous speech).
+     * Must be called after acceptWaveform/flush. */
     private fun drainVadSegments(v: Vad) {
         while (!v.empty()) {
             val segment = v.front()
             v.pop()
             if (segment.samples.size < SAMPLE_RATE / 2) continue
             val startSec = segment.start.toFloat() / SAMPLE_RATE
-            val endSec = startSec + segment.samples.size.toFloat() / SAMPLE_RATE
-            finishedChunks.offer(TimedChunk(segment.samples, startSec, endSec))
+            for (piece in SegmentSplitter.split(startSec, segment.samples, SAMPLE_RATE)) {
+                finishedChunks.offer(TimedChunk(piece.samples, piece.startSec, piece.endSec))
+            }
         }
         scheduleChunkDecode()
     }
@@ -577,20 +656,8 @@ class MeetingRecorderService : Service() {
 
     /** Filler-word removal + custom dictionary, same pipeline as dictation
      * (iOS applies TranscriptPostProcessor to meeting chunks too). */
-    private fun postProcess(text: String): String {
-        if (text.isBlank()) return text
-        var processed = text
-        if (store.isFillerWordRemovalEnabled) {
-            processed = fr.clinitex.transcription.utils.FillerWordFilter.apply(processed)
-        }
-        if (store.isCustomDictionaryEnabled) {
-            processed = kotlinx.coroutines.runBlocking {
-                // Own words + common Clinitex words (lot 6a).
-                fr.clinitex.transcription.utils.CustomWordMatcher.apply(processed, store.getDictionaryWords())
-            }
-        }
-        return processed.trim()
-    }
+    private fun postProcess(text: String): String =
+        kotlinx.coroutines.runBlocking { TranscriptPostProcessor.apply(store, text) }
 
     // ── WAV retention ────────────────────────────────────────────────────
 

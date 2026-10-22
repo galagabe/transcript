@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import fr.clinitex.transcription.BuildConfig
 import fr.clinitex.transcription.audio.AudioInputRouteManager
 import fr.clinitex.transcription.data.SharedStore
 import fr.clinitex.transcription.data.entity.CustomWord
@@ -81,7 +82,7 @@ fun SettingsTab(store: SharedStore) {
             when (current) {
                 SettingsSection.MEETINGS -> MeetingsSettings(store)
                 SettingsSection.DICTIONARY -> DictionarySettings(store)
-                SettingsSection.MODELS -> ModelsSettings()
+                SettingsSection.MODELS -> ModelsSettings(store)
                 SettingsSection.ABOUT -> AboutSettings(store)
             }
         }
@@ -95,7 +96,7 @@ private enum class SettingsSection(
 ) {
     MEETINGS("Réunions", "Modèle de compte rendu, micro et intervenants.", Icons.Outlined.Groups),
     DICTIONARY("Dictionnaire", "Mots d’hésitation, termes métier, noms et sigles.", Icons.Outlined.Book),
-    MODELS("Modèle de transcription", "Téléchargement du modèle Parakeet sur le téléphone.", Icons.Outlined.Memory),
+    MODELS("Modèle de transcription", "Parakeet sur le téléphone ou Voxtral en ligne.", Icons.Outlined.Memory),
     ABOUT("À propos", "Version, profil et mentions open source.", Icons.Outlined.Info),
 }
 
@@ -599,14 +600,46 @@ private fun micPreferenceSubtitle(
 // ─────────────────────── Models ───────────────────────
 
 @Composable
-private fun ModelsSettings() {
+private fun ModelsSettings(store: SharedStore) {
+    val voxtralAvailable = BuildConfig.CLINITEX_TRANSCRIPTION_URL.isNotBlank()
+    var engine by remember { mutableStateOf(store.transcriptionEngine) }
+    val online = voxtralAvailable && engine == SharedStore.ENGINE_VOXTRAL
+
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        // Voxtral variant: engine choice, only when the build has the transcription webhook.
+        if (voxtralAvailable) {
+            SettingsCard {
+                CardTitle("Moteur de transcription")
+                ChoiceRow(
+                    title = "Parakeet, sur le téléphone",
+                    subtitle = "Sans réseau, l’audio ne quitte pas le téléphone. Modèle à télécharger.",
+                    selected = !online,
+                    onClick = {
+                        engine = SharedStore.ENGINE_PARAKEET
+                        store.transcriptionEngine = engine
+                    },
+                )
+                ChoiceRow(
+                    title = "Voxtral, en ligne (Mistral AI)",
+                    subtitle = "L’audio part par tranches de 10 minutes, dès que le réseau est là. Intervenants séparés par Mistral.",
+                    selected = online,
+                    onClick = {
+                        engine = SharedStore.ENGINE_VOXTRAL
+                        store.transcriptionEngine = engine
+                    },
+                )
+            }
+        }
         // Single-model catalog (Parakeet v3): information + download/delete, no picker.
         SpeechModelCard(model = SpeechModels.PARAKEET_V3)
         SettingsCard {
-            CardTitle("Transcription sur le téléphone")
+            CardTitle(if (online) "Transcription en ligne" else "Transcription sur le téléphone")
             Text(
-                "La transcription s’exécute entièrement sur le téléphone grâce à sherpa-onnx : l’audio ne quitte jamais l’appareil. Seule la transcription texte est envoyée pour générer le compte rendu.",
+                if (online) {
+                    "L’audio est envoyé par le serveur Clinitex à Mistral AI (Voxtral Mini Transcribe 3), par tranches de 10 minutes qui reprennent les 30 dernières secondes de la tranche précédente. Hors réseau, l’envoi attend le retour de la connexion ; la transcription arrive après l’arrêt."
+                } else {
+                    "La transcription s’exécute entièrement sur le téléphone grâce à sherpa-onnx : l’audio ne quitte jamais l’appareil. Seule la transcription texte est envoyée pour générer le compte rendu."
+                },
                 style = ClinitexType.body(13.sp, FontWeight.Normal, 19.sp),
                 color = ClinitexPalette.InkSoft,
             )
@@ -642,7 +675,7 @@ private fun AboutSettings(store: SharedStore) {
             val info = remember { context.packageManager.getPackageInfo(context.packageName, 0) }
             InfoRow("Version", "${info.versionName} (${info.longVersionCode})")
             InfoRow("Moteur de reconnaissance", "sherpa-onnx 1.13.4")
-            InfoRow("Modèle", SpeechModels.selected(context).displayName)
+            InfoRow("Modèle", if (store.usesVoxtral) "Voxtral Mini Transcribe 3 (en ligne)" else SpeechModels.selected(context).displayName)
         }
 
         SettingsCard {

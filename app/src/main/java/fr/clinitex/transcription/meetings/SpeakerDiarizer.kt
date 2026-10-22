@@ -131,6 +131,29 @@ class SpeakerDiarizer(
         }
     }
 
+    /**
+     * Voice embedding of each speaker of one Voxtral tranche (segments in
+     * seconds from the start of the recording), from the retained WAV: lets
+     * [DiarizationWindows.link] recognize a speaker from one tranche to the
+     * next. Only the embedding model is loaded.
+     */
+    fun speakerEmbeddings(
+        wav: File,
+        startSample: Long,
+        sampleCount: Int,
+        segmentsBySpeaker: Map<String, List<SpeakerLabeler.SpeakerSegment>>,
+    ): Map<String, FloatArray?> {
+        if (segmentsBySpeaker.isEmpty()) return emptyMap()
+        val extractor = SpeakerEmbeddingExtractor(assetManager = context.assets, config = embeddingConfig)
+        try {
+            val pcm = WavSamples.readMono16k(wav, startSample, sampleCount)
+            val startSec = startSample.toFloat() / WavSamples.SAMPLE_RATE
+            return segmentsBySpeaker.mapValues { (_, segments) -> embed(extractor, pcm, startSec, segments) }
+        } finally {
+            extractor.release()
+        }
+    }
+
     /** "speaker=seconds" pairs, most speech first, for the logs. */
     internal fun speechPerSpeaker(segments: List<SpeakerLabeler.SpeakerSegment>): String =
         segments.groupBy { it.speaker }

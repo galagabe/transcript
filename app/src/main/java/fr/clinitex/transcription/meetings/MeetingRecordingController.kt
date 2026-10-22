@@ -37,6 +37,9 @@ object MeetingRecordingController {
         private set
     var liveTranscript by mutableStateOf("")
         private set
+    /** Voxtral variant: transcribed online after the fact, no live transcript. */
+    var isOnlineTranscription by mutableStateOf(false)
+        private set
 
     val isActive: Boolean get() = isRecording || isFinalizing
     val isVoiceNote: Boolean get() = kind == RecordingSession.KIND_VOICE_NOTE
@@ -75,7 +78,8 @@ object MeetingRecordingController {
 
     // ── Called by the service ──────────────────────────────────────────
 
-    fun onCaptureStarted(sessionId: String, title: String, kind: String, templateId: String) {
+    fun onCaptureStarted(sessionId: String, title: String, kind: String, templateId: String, online: Boolean = false) {
+        isOnlineTranscription = online
         activeSessionId = sessionId
         meetingTitle = title
         this.kind = kind

@@ -25,6 +25,29 @@ object WavSamples {
     fun sampleCount(file: File): Long =
         ((file.length() - HEADER_BYTES).coerceAtLeast(0L)) / 2
 
+    /** Up to [maxSamples] raw 16-bit samples starting at sample [fromSample]
+     * (Voxtral tranches, re-encoded losslessly as FLAC). */
+    fun readPcm16(file: File, fromSample: Long, maxSamples: Int): ShortArray {
+        val available = sampleCount(file) - fromSample.coerceAtLeast(0L)
+        val count = minOf(available, maxSamples.toLong()).toInt()
+        if (count <= 0) return ShortArray(0)
+        val out = ShortArray(count)
+        val buffer = ByteArray(BUFFER_BYTES)
+        RandomAccessFile(file, "r").use { raf ->
+            raf.seek(HEADER_BYTES + fromSample * 2)
+            var written = 0
+            while (written < count) {
+                val samples = minOf(count - written, BUFFER_BYTES / 2)
+                raf.readFully(buffer, 0, samples * 2)
+                for (i in 0 until samples) {
+                    out[written + i] = ((buffer[i * 2 + 1].toInt() shl 8) or (buffer[i * 2].toInt() and 0xFF)).toShort()
+                }
+                written += samples
+            }
+        }
+        return out
+    }
+
     /** Whole file as float samples in [-1, 1). */
     fun readMono16k(file: File): FloatArray = readMono16k(file, 0L, Int.MAX_VALUE)
 

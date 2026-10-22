@@ -33,6 +33,8 @@ android {
         buildConfigField("String", "CLINITEX_DEVICE_TOKEN", "\"${clinitexProp("clinitex.deviceToken")}\"")
         // Lot 6a: shared Clinitex word list (same device token).
         buildConfigField("String", "CLINITEX_DICTIONARY_URL", "\"${clinitexProp("clinitex.dictionaryUrl")}\"")
+        // Voxtral variant: n8n webhook forwarding audio tranches to Mistral (same device token).
+        buildConfigField("String", "CLINITEX_TRANSCRIPTION_URL", "\"${clinitexProp("clinitex.transcriptionUrl")}\"")
     }
 
     // Lot 5: Clinitex release key. Keystore and passwords come from local.properties

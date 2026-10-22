@@ -38,14 +38,18 @@ fun ConsentDialog(
     isVoiceNote: Boolean,
     onConfirm: (consentAt: Long) -> Unit,
     onDismiss: () -> Unit,
+    /** Voxtral variant: the audio is transcribed by Mistral, not on the phone. */
+    online: Boolean = false,
 ) {
     // Unticked every time: consent is confirmed per recording, never remembered.
     var informed by remember { mutableStateOf(false) }
     val retentionHours = AudioPurgeWorker.RETENTION_HOURS
-    val intro = if (isVoiceNote) {
-        "Si d’autres personnes sont présentes, prévenez-les que vous enregistrez."
-    } else {
-        "Prévenez les participants que la réunion est enregistrée et transcrite sur ce téléphone."
+    val intro = when {
+        isVoiceNote && online ->
+            "Si d’autres personnes sont présentes, prévenez-les que vous enregistrez. L’audio est transcrit en ligne par Mistral AI (Voxtral)."
+        isVoiceNote -> "Si d’autres personnes sont présentes, prévenez-les que vous enregistrez."
+        online -> "Prévenez les participants que la réunion est enregistrée et transcrite en ligne par Mistral AI (Voxtral)."
+        else -> "Prévenez les participants que la réunion est enregistrée et transcrite sur ce téléphone."
     }
 
     AlertDialog(

@@ -66,7 +66,8 @@ fun VoiceNotesTab(
     val context = LocalContext.current
     var notes by remember { mutableStateOf(emptyList<RecordingSession>()) }
     var askConsent by remember { mutableStateOf(false) }
-    val modelReady = remember { ModelManager(context.applicationContext).isDownloaded() }
+    // Voxtral variant: no on-device model needed.
+    val modelReady = remember { store.usesVoxtral || ModelManager(context.applicationContext).isDownloaded() }
 
     ScreenBackground(ClinitexPalette.PaperTint)
 
@@ -190,6 +191,7 @@ fun VoiceNotesTab(
     if (askConsent) {
         ConsentDialog(
             isVoiceNote = true,
+            online = store.usesVoxtral,
             onConfirm = { consentAt -> askConsent = false; startDictation(consentAt) },
             onDismiss = { askConsent = false },
         )

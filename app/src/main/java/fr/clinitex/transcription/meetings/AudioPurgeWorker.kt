@@ -82,6 +82,9 @@ interface AudioPurgeSessions {
  * - any other WAV no session points to (capture interrupted by a crash)
  *   older than the retention period → deleted.
  * File ages come from the last write, so a recording in progress is never touched.
+ * A session still "transcribing" online (Voxtral variant) keeps its WAV
+ * until its transcript is assembled; the 48 h count from the recording end
+ * then applies as usual.
  */
 class AudioPurger(
     private val sessions: AudioPurgeSessions,
@@ -107,6 +110,8 @@ class AudioPurger(
         var sessionAudio = 0
         for (session in all) {
             val name = session.audioFileName ?: continue
+            // Voxtral variant: tranches still waiting for the network are read from this WAV.
+            if (session.phase == "transcribing") continue
             val start = retentionStart(session) ?: continue
             if (nowMs - start < AudioPurgeWorker.RETENTION_MS) continue
             val file = File(meetingsDir, name)

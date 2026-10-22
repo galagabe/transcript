@@ -72,6 +72,19 @@ class AudioPurgerTest {
     }
 
     @Test
+    fun keepsAudioOfASessionStillTranscribedOnline() = runTest {
+        // Voxtral variant: tranches still waiting for the network after 3 days offline.
+        val waiting = wav("waiting.wav", modifiedAt = now - 3 * day)
+        val fake = FakeSessions(listOf(session("waiting", endedAt = now - 3 * day).copy(phase = "transcribing")))
+
+        val report = purge(fake)
+
+        assertTrue(waiting.exists())
+        assertTrue(fake.deleted.isEmpty())
+        assertEquals(0, report.total)
+    }
+
+    @Test
     fun keepsAudioYoungerThan48Hours() = runTest {
         val recent = wav("recent.wav")
         // Started 50 h ago but ended 47 h ago: retention counts from the end.

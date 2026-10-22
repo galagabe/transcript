@@ -79,7 +79,8 @@ fun MeetingsTab(
     var searchQuery by remember { mutableStateOf("") }
     var askConsent by remember { mutableStateOf(false) }
 
-    val modelReady = remember { ModelManager(context.applicationContext).isDownloaded() }
+    // Voxtral variant: no on-device model needed.
+    val modelReady = remember { store.usesVoxtral || ModelManager(context.applicationContext).isDownloaded() }
 
     ScreenBackground(ClinitexPalette.PaperTint)
 
@@ -213,6 +214,7 @@ fun MeetingsTab(
     if (askConsent) {
         ConsentDialog(
             isVoiceNote = false,
+            online = store.usesVoxtral,
             onConfirm = { consentAt -> askConsent = false; startMeeting(consentAt) },
             onDismiss = { askConsent = false },
         )

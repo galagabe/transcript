@@ -102,8 +102,36 @@ object DiarizationWindows {
         linkThreshold: Float = LINK_THRESHOLD,
         minOverlapAgreementSec: Float = MIN_OVERLAP_AGREEMENT_SEC,
     ): List<SpeakerSegment> {
-        val centroids = mutableListOf<FloatArray?>() // duration-weighted sums of unit embeddings
+        val mappings = link(results, linkThreshold, minOverlapAgreementSec)
         val merged = mutableListOf<SpeakerSegment>()
+        results.forEachIndexed { index, result ->
+            for (seg in result.segments) {
+                val start = maxOf(seg.startSec, result.window.ownStartSec)
+                val end = minOf(seg.endSec, result.window.ownEndSec)
+                if (end - start >= MIN_SEGMENT_SEC) {
+                    merged += seg.copy(startSec = start, endSec = end, speaker = mappings[index].getValue(seg.speaker))
+                }
+            }
+        }
+        merged.sortBy { it.startSec }
+        val order = HashMap<Int, Int>()
+        for (seg in merged) order.getOrPut(seg.speaker) { order.size }
+        return merged.map { it.copy(speaker = order.getValue(it.speaker)) }
+    }
+
+    /**
+     * Global speaker of each local speaker, window by window (same order as
+     * [results]), by overlap agreement, then voice embedding, then a new
+     * speaker. Global ids are not yet numbered by first appearance. Also used
+     * for the Voxtral tranches, whose local speakers come from the API.
+     */
+    fun link(
+        results: List<WindowResult>,
+        linkThreshold: Float = LINK_THRESHOLD,
+        minOverlapAgreementSec: Float = MIN_OVERLAP_AGREEMENT_SEC,
+    ): List<Map<Int, Int>> {
+        val centroids = mutableListOf<FloatArray?>() // duration-weighted sums of unit embeddings
+        val mappings = mutableListOf<Map<Int, Int>>()
         var previous: Pair<Window, List<SpeakerSegment>>? = null // previous window, global ids, unclipped
 
         for (result in results) {
@@ -168,19 +196,10 @@ object DiarizationWindows {
                 for (i in unit.indices) sum[i] += unit[i] * speech.coerceAtLeast(0.1f)
             }
 
-            val globalSegments = result.segments.map { it.copy(speaker = mapping.getValue(it.speaker)) }
-            for (seg in globalSegments) {
-                val start = maxOf(seg.startSec, result.window.ownStartSec)
-                val end = minOf(seg.endSec, result.window.ownEndSec)
-                if (end - start >= MIN_SEGMENT_SEC) merged += seg.copy(startSec = start, endSec = end)
-            }
-            previous = result.window to globalSegments
+            previous = result.window to result.segments.map { it.copy(speaker = mapping.getValue(it.speaker)) }
+            mappings += mapping
         }
-
-        merged.sortBy { it.startSec }
-        val order = HashMap<Int, Int>()
-        for (seg in merged) order.getOrPut(seg.speaker) { order.size }
-        return merged.map { it.copy(speaker = order.getValue(it.speaker)) }
+        return mappings
     }
 
     /**
