@@ -187,7 +187,7 @@ clinitex.deviceToken=…
   "manualNotes": "…",
   "transcript": "Intervenant 1 · 0:04\n…",
   "durationSec": 2710,
-  "appVersion": "1.2.0-beta"
+  "appVersion": "1.3.0-beta"
 }
 ```
 
@@ -242,7 +242,7 @@ clindy/
 | 5 | Consentement avant enregistrement, suppression auto des audios, signature release, package `fr.clinitex.transcription` | ✅ (hébergement des modèles Parakeet : à décider) |
 | 6 | Dictionnaire commun Clinitex (n8n), reprise automatique des synthèses + « Forcer la reconnexion », audio conservé 48 h | ✅ |
 | 7 | Variante Voxtral (transcription en ligne par tranches de 10 min), dictionnaire plus strict sur les mots courts | ✅ (calibrage du raccord sur de vrais RDV à poursuivre) |
-| 8 | Type de réunion **Métré** avec export CSV pour l'outil de calcul, synthèse par **Claude Sonnet** | ✅ (à publier dans une prochaine version) |
+| 8 | Type de réunion **Métré** avec export CSV pour l'outil de calcul, synthèse par **Claude Sonnet** | ✅ (1.3.0-beta ; import du CSV dans l'outil de calcul à valider) |
 
 > ℹ️ **Version bêta** : package `fr.clinitex.transcription`, release signée
 > avec la clé Clinitex. Distribution interne uniquement.
@@ -255,4 +255,4 @@ Muesli sont conservés, comme l'exige la licence.
 
 ---
 
-<p align="center"><sub>Clinitex — application interne · Clindy v1.2.0-beta</sub></p>
+<p align="center"><sub>Clinitex — application interne · Clindy v1.3.0-beta</sub></p>
