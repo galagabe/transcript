@@ -23,6 +23,10 @@ part vers un **webhook n8n Clinitex**, qui appelle Claude et renvoie le compte
 rendu. Sans réseau, la synthèse est **mise en file** et part toute seule dès
 que le téléphone retrouve une connexion.
 
+Depuis la 1.2.0-beta, une **variante en ligne** peut être choisie dans les
+Réglages : l'audio est alors transcrit par **Mistral Voxtral** (via le même
+serveur n8n), par tranches de 10 minutes envoyées pendant l'enregistrement.
+
 ## À quoi ça sert
 
 - Sortir d'un **RDV commercial** avec un compte rendu propre : besoin du
@@ -47,8 +51,9 @@ Trois onglets : **Réunions · Vocaux · Réglages**.
    vues : **Note au propre** et **Transcription brute**.
 3. **Réglages** : modèle de compte rendu par défaut, micro d'enregistrement
    (micro USB externe ou micro du téléphone), affichage des intervenants,
-   dictionnaire de mots personnalisés (ex. « autolaveuse »), modèle de
-   transcription.
+   dictionnaire de mots personnalisés (ex. « autolaveuse »), moteur de
+   transcription (**Parakeet sur le téléphone**, par défaut, ou **Voxtral en
+   ligne**).
 
 Avant chaque enregistrement (réunion ou vocal), une fenêtre demande de cocher
 **« Les participants ont été informés de l'enregistrement »** ; l'heure de cette
@@ -98,9 +103,30 @@ L'état de la synthèse est visible sur chaque élément : **en attente de rése
 - **Rien n'est conservé côté serveur** : n8n renvoie `{title, notes}` et c'est
   tout (sauvegarde des exécutions réussies désactivée dans le workflow). Le
   compte rendu ne vit que dans l'app.
+- **Dictionnaire** : les mots du dictionnaire de moins de 6 lettres (sigles,
+  noms courts) ne sont remplacés que s'ils sont entendus exactement ; la
+  correction approchée est réservée aux mots longs.
 
-> 🔒 **Confidentialité** : l'audio et la transcription restent sur le
-> téléphone. Seul le texte part vers n8n au moment de la synthèse.
+### Variante Voxtral (transcription en ligne)
+
+- Choix dans **Réglages › Modèle de transcription** ; la fenêtre de
+  consentement indique alors que l'audio est transcrit par Mistral AI.
+- L'enregistrement est découpé en **tranches de 10 min**, chacune reprenant les
+  **30 dernières secondes** de la précédente. Chaque tranche part dès qu'elle
+  est complète (FLAC sans perte, ≈ 10 Mo), la dernière à l'arrêt ; hors réseau,
+  elles attendent dans une file WorkManager.
+- Mistral (`voxtral-mini-transcribe-3`) renvoie le texte par intervenant. Le
+  téléphone raccorde les tranches : coupe sur une pause commune dans le
+  recouvrement, et intervenants reliés d'une tranche à l'autre par
+  recouvrement puis empreinte vocale TitaNet-S (calculée sur le téléphone).
+- La clé Mistral vit uniquement dans n8n (workflow « Clindy - Transcription
+  Voxtral », qui transmet le fichier tel quel et ne sauvegarde aucune
+  exécution). L'audio d'une réunion en attente d'envoi n'est pas supprimé
+  avant d'être transcrit.
+
+> 🔒 **Confidentialité** : avec Parakeet (par défaut), l'audio et la
+> transcription restent sur le téléphone. Seul le texte part vers n8n au
+> moment de la synthèse. Avec Voxtral, l'audio est envoyé à Mistral AI.
 > L'audio est **supprimé automatiquement 48 h** après la fin de
 > l'enregistrement (purge toutes les heures et à chaque lancement) ; la
 > transcription et le compte rendu restent dans l'app.
@@ -115,6 +141,8 @@ d'appareil sont injectés à la compilation via **`local.properties`**
 |---|---|
 | `clinitex.summaryUrl` | URL du webhook n8n de synthèse |
 | `clinitex.deviceToken` | Jeton envoyé dans l'en-tête `X-Clinitex-Device-Token` |
+| `clinitex.dictionaryUrl` | URL du webhook n8n du dictionnaire commun |
+| `clinitex.transcriptionUrl` | URL du webhook n8n Voxtral (vide : le choix Voxtral n'apparaît pas) |
 | `clinitex.release.storeFile` | Chemin du keystore Clinitex (hors dépôt) pour signer la release |
 | `clinitex.release.storePassword` / `keyPassword` | Mots de passe du keystore et de la clé |
 | `clinitex.release.keyAlias` | Alias de la clé (`clindy`) |
@@ -141,7 +169,7 @@ clinitex.deviceToken=…
   "manualNotes": "…",
   "transcript": "Intervenant 1 · 0:04\n…",
   "durationSec": 2710,
-  "appVersion": "1.1.0-beta"
+  "appVersion": "1.2.0-beta"
 }
 ```
 
@@ -174,6 +202,7 @@ clindy/
 │   ├── engine/       # chargement partagé de Parakeet (sherpa-onnx)
 │   ├── model/        # téléchargement reprenable des modèles
 │   ├── summaries/    # client du webhook n8n, SummaryWorker
+│   ├── voxtral/      # variante en ligne : tranches, FLAC, client Voxtral, raccord
 │   ├── data/         # Room (entités, DAO, migrations)
 │   ├── ui/           # écrans Compose (Réunions, Vocaux, Réglages, enregistrement)
 │   ├── theme/        # charte Clinitex
@@ -194,6 +223,7 @@ clindy/
 | — | Onglet Vocaux, charte Clinitex | ✅ |
 | 5 | Consentement avant enregistrement, suppression auto des audios, signature release, package `fr.clinitex.transcription` | ✅ (hébergement des modèles Parakeet : à décider) |
 | 6 | Dictionnaire commun Clinitex (n8n), reprise automatique des synthèses + « Forcer la reconnexion », audio conservé 48 h | ✅ |
+| 7 | Variante Voxtral (transcription en ligne par tranches de 10 min), dictionnaire plus strict sur les mots courts | ✅ (calibrage du raccord sur de vrais RDV à poursuivre) |
 
 > ℹ️ **Version bêta** : package `fr.clinitex.transcription`, release signée
 > avec la clé Clinitex. Distribution interne uniquement.
@@ -206,4 +236,4 @@ Muesli sont conservés, comme l'exige la licence.
 
 ---
 
-<p align="center"><sub>Clinitex — application interne · Clindy v1.1.0-beta</sub></p>
+<p align="center"><sub>Clinitex — application interne · Clindy v1.2.0-beta</sub></p>
