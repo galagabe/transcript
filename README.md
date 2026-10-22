@@ -210,7 +210,7 @@ clinitex.deviceToken=…
   "manualNotes": "…",
   "transcript": "Intervenant 1 · 0:04\n…",
   "durationSec": 2710,
-  "appVersion": "1.4.0-beta"
+  "appVersion": "1.5.0-beta"
 }
 ```
 
@@ -267,7 +267,7 @@ clindy/
 | 7 | Variante Voxtral (transcription en ligne par tranches de 10 min), dictionnaire plus strict sur les mots courts | ✅ (calibrage du raccord sur de vrais RDV à poursuivre) |
 | 8 | Type de réunion **Métré** avec export CSV pour l'outil de calcul, synthèse par **Claude Sonnet** | ✅ (1.3.0-beta ; import du CSV dans l'outil de calcul à valider) |
 | 9 | Métré dans l'onglet Vocaux, fréquences en codes (Q1…Q5, MENS, TRIM), types de local de l'outil de calcul, fichier des équipements sanitaires | ✅ (1.4.0-beta) |
-| 10 | Métré : les 37 types de local de la feuille de calcul, écrits à l'identique | ✅ (à publier) |
+| 10 | Métré : les 37 types de local de la feuille de calcul, écrits à l'identique | ✅ (1.5.0-beta) |
 
 > ℹ️ **Version bêta** : package `fr.clinitex.transcription`, release signée
 > avec la clé Clinitex. Distribution interne uniquement.
@@ -280,4 +280,4 @@ Muesli sont conservés, comme l'exige la licence.
 
 ---
 
-<p align="center"><sub>Clinitex — application interne · Clindy v1.4.0-beta</sub></p>
+<p align="center"><sub>Clinitex — application interne · Clindy v1.5.0-beta</sub></p>
