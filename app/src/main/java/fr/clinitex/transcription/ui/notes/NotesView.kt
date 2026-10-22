@@ -40,7 +40,8 @@ import fr.clinitex.transcription.ui.components.Eyebrow
 /**
  * Renders summary / cleaned-note Markdown the Clinitex way: headings as blue
  * uppercase eyebrows, "- [ ]" lines as checkboxes (not persisted: they reset
- * when the screen is reopened), bullets, paragraphs with **bold** runs.
+ * when the screen is reopened), bullets, paragraphs with **bold** runs, and
+ * table rows (Métré) as small cards.
  */
 @Composable
 fun NotesView(markdown: String, modifier: Modifier = Modifier) {
@@ -81,6 +82,7 @@ fun NotesView(markdown: String, modifier: Modifier = Modifier) {
                         onToggle = { checked[index] = !isChecked },
                     )
                 }
+                is NoteBlock.Table -> TableRows(block)
             }
         }
     }
@@ -118,6 +120,32 @@ private fun TaskRow(text: String, checked: Boolean, onToggle: () -> Unit) {
             color = if (checked) ClinitexPalette.Muted else ClinitexPalette.Ink,
             modifier = Modifier.weight(1f),
         )
+    }
+}
+
+/** A table is too wide for a phone: one card per row, "Column : value" for the filled cells. */
+@Composable
+private fun TableRows(table: NoteBlock.Table) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        table.rows.forEach { row ->
+            val text = buildAnnotatedString {
+                table.header.zip(row).filter { it.second.isNotBlank() }.forEachIndexed { i, (column, value) ->
+                    if (i > 0) append("  ·  ")
+                    withStyle(SpanStyle(color = ClinitexPalette.Muted)) { append("$column ") }
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(value.replace("**", "")) }
+                }
+            }
+            Text(
+                text,
+                style = ClinitexType.body(13.sp, FontWeight.Normal, 19.sp),
+                color = ClinitexPalette.Ink,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(ClinitexPalette.PaperTint)
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+            )
+        }
     }
 }
 

@@ -13,6 +13,10 @@ package fr.clinitex.transcription.meetings
  * and always, by voice notes.
  *
  * The RDV commercial sections are a proposal pending business validation.
+ * [METRE] (requested after a talk with a Pas-de-Calais salesperson, 10/2026):
+ * the salesperson dictates the premises alone; the notes hold one Markdown
+ * table whose columns are those of the Clinitex costing tool, exported as
+ * CSV by [MetreCsv]. Never diarized (a single voice).
  */
 enum class MeetingTemplate(
     val id: String,
@@ -64,6 +68,24 @@ Deux ou trois phrases : qui a été rencontré, pour quel site, et l'issue du re
 
 ## Prochaines étapes
 - [ ] Action — responsable et échéance s'ils sont cités"""
+    ),
+    METRE(
+        "metre", "Métré", "Locaux dictés (type, revêtement, surface, fréquence), exportables en CSV pour l'outil de calcul.",
+        """Ce texte est un métré dicté par un commercial : il énumère les locaux d'un site avec leurs caractéristiques. N'invente rien et ne calcule rien.
+
+## Locaux
+Un seul tableau Markdown, avec exactement ces colonnes et dans cet ordre :
+| Fréquence | Batiment | Etage | Type de Local | Revêtement | Prestations | Surface |
+- Une ligne par local dicté. Si plusieurs locaux identiques sont dictés ensemble (ex. « trois bureaux de 12 m² »), une ligne par local.
+- Type de Local : tel que dicté (bureau, sanitaires, couloir, circulation, salle de réunion, réfectoire…).
+- Revêtement : le revêtement de sol tel que dicté (carrelage, moquette, thermoplastique, parquet bois, ciment…).
+- Fréquence : la fréquence de passage dictée, en forme courte (ex. « 2 fois par semaine »). Si une fréquence est dictée pour un groupe de locaux, reporte-la sur chaque ligne concernée.
+- Surface : le nombre seul, en m², avec une virgule décimale (ex. 12,5).
+- Batiment, Etage, Prestations : seulement s'ils sont dictés.
+- Toute information non dictée : laisse la cellule vide. N'écris jamais « Rien de noté », « non précisé » ni de tiret dans le tableau.
+
+## Remarques
+- Les autres informations utiles dictées (accès, horaires, contraintes, matériel). Si rien d'autre n'est dicté, écris « Rien de noté »."""
     ),
     REUNION_INTERNE(
         "reunionInterne", "Réunion interne", "Points abordés, décisions, actions et points ouverts.",

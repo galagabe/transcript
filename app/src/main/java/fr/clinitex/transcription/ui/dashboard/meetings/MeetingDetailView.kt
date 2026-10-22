@@ -1,6 +1,8 @@
 package fr.clinitex.transcription.ui.dashboard.meetings
 
+import android.content.ClipData
 import android.content.Intent
+import androidx.core.content.FileProvider
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.*
@@ -25,6 +27,7 @@ import fr.clinitex.transcription.data.SharedStore
 import fr.clinitex.transcription.data.entity.RecordingSession
 import fr.clinitex.transcription.meetings.AudioPurgeWorker
 import fr.clinitex.transcription.meetings.MeetingTemplate
+import fr.clinitex.transcription.meetings.MetreCsv
 import fr.clinitex.transcription.summaries.SummaryRunner
 import fr.clinitex.transcription.summaries.SummaryWorker
 import fr.clinitex.transcription.theme.ClinitexPalette
@@ -144,6 +147,26 @@ fun MeetingDetailView(
         context.startActivity(Intent.createChooser(intent, "Partager la réunion"))
     }
 
+    // Métré: premises table of the summary, exported as the costing tool's CSV.
+    val metreRows = remember(meeting.summaryText, template) {
+        if (template == MeetingTemplate.METRE) MetreCsv.rows(meeting.summaryText) else emptyList()
+    }
+
+    fun exportMetre() {
+        val dir = File(context.cacheDir, "exports").apply { mkdirs() }
+        val file = File(dir, MetreCsv.fileName(meeting.title, meeting.startedAt ?: meeting.createdAt))
+        file.writeText(MetreCsv.toCsv(metreRows), Charsets.UTF_8)
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/csv"
+            putExtra(Intent.EXTRA_SUBJECT, meeting.title)
+            putExtra(Intent.EXTRA_STREAM, uri)
+            clipData = ClipData.newRawUri(file.name, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(intent, "Exporter le métré (CSV)"))
+    }
+
     fun saveNames() {
         val names = cleanNames(shownNames)
         scope.launch {
@@ -244,7 +267,16 @@ fun MeetingDetailView(
                 )
             }
         } else BottomActionBar {
-            PillButton(
+            if (template == MeetingTemplate.METRE) {
+                // The text stays shareable from the top bar.
+                PillButton(
+                    "Exporter le CSV",
+                    onClick = { exportMetre() },
+                    icon = Icons.Default.IosShare,
+                    enabled = metreRows.isNotEmpty(),
+                    modifier = Modifier.weight(1f),
+                )
+            } else PillButton(
                 "Partager",
                 onClick = { shareMeeting() },
                 icon = Icons.Default.IosShare,

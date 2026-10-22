@@ -119,6 +119,7 @@ class MeetingRecorderService : Service() {
     // decoding, the WAV is sent to Mistral in 10-minute tranches instead.
     @Volatile
     private var useVoxtral = false
+    /** Diarize at stop (Parakeet) or ask Voxtral for speakers: meetings only, not Métré. */
     private var diarizeTranches = false
     /** Tranches [0, tranchesEnqueued) are already in WorkManager. */
     private var tranchesEnqueued = 0
@@ -172,8 +173,8 @@ class MeetingRecorderService : Service() {
             samplesCaptured = 0L
         }
         finishedChunks.clear()
-        // Voice notes are a single speaker: never diarized.
-        diarizeTranches = kind != RecordingSession.KIND_VOICE_NOTE && store.speakerLabelsEnabled
+        // Voice notes and Métré dictations are a single speaker: never diarized.
+        diarizeTranches = kind != RecordingSession.KIND_VOICE_NOTE && templateId != MeetingTemplate.METRE.id && store.speakerLabelsEnabled
         tranchesEnqueued = 0
         vad = if (useVoxtral) null else try {
             Vad(
@@ -281,11 +282,9 @@ class MeetingRecorderService : Service() {
             val endedAt = System.currentTimeMillis()
             val audioName = wavFile?.name
 
-            // Voice notes are a single speaker: no diarization, no "Intervenant N" labels.
-            val isVoiceNote = sessionKind == RecordingSession.KIND_VOICE_NOTE
             // Speaker of each decoded chunk, stored as TranscriptSegment rows (lot 3).
             var labeledChunks = emptyList<SpeakerLabeler.LabeledText>()
-            if (!discard && !isVoiceNote && store.speakerLabelsEnabled && wavFile != null && finalText.isNotBlank()) {
+            if (!discard && diarizeTranches && wavFile != null && finalText.isNotBlank()) {
                 try {
                     labeledChunks = diarizeAndLabel()
                     if (labeledChunks.isNotEmpty()) {

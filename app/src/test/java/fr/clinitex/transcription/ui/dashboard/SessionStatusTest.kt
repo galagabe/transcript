@@ -55,7 +55,7 @@ class SessionStatusTest {
     fun voiceNoteTemplateIsHiddenFromMeetingPickers() {
         assertFalse(MeetingTemplate.NOTE_VOCALE in MeetingTemplate.meetingTemplates)
         assertEquals(
-            listOf(MeetingTemplate.GENERAL, MeetingTemplate.RDV_COMMERCIAL, MeetingTemplate.REUNION_INTERNE),
+            listOf(MeetingTemplate.GENERAL, MeetingTemplate.RDV_COMMERCIAL, MeetingTemplate.METRE, MeetingTemplate.REUNION_INTERNE),
             MeetingTemplate.meetingTemplates,
         )
         assertEquals(MeetingTemplate.NOTE_VOCALE, MeetingTemplate.fromId("noteVocale"))

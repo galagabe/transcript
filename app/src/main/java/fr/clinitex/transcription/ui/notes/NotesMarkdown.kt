@@ -3,8 +3,8 @@ package fr.clinitex.transcription.ui.notes
 /**
  * Minimal Markdown reader for the notes returned by the summary webhook
  * (meeting summaries and cleaned-up voice notes). Claude writes "## Heading",
- * "- [ ] task", "- bullet", "1. item" and plain paragraphs; anything else is
- * shown as text. Pure Kotlin so it is unit-tested on the JVM.
+ * "- [ ] task", "- bullet", "1. item", plain paragraphs and, for the Métré
+ * template, one `| … |` table; anything else is shown as text. Pure Kotlin so it is unit-tested on the JVM.
  */
 sealed interface NoteBlock {
     data class Heading(val text: String, val level: Int) : NoteBlock
@@ -12,6 +12,8 @@ sealed interface NoteBlock {
     /** [marker] is "•" for bullets, "1." / "2." … for numbered items. */
     data class Bullet(val text: String, val marker: String = "•") : NoteBlock
     data class Task(val text: String, val checked: Boolean) : NoteBlock
+    /** Markdown table (Métré): [rows] have exactly as many cells as [header]. */
+    data class Table(val header: List<String>, val rows: List<List<String>>) : NoteBlock
 }
 
 /** A run of inline text, bold when it was wrapped in `**`. */
@@ -28,6 +30,7 @@ object NotesMarkdown {
     fun parse(markdown: String): List<NoteBlock> {
         val blocks = mutableListOf<NoteBlock>()
         val paragraph = mutableListOf<String>()
+        val tableLines = mutableListOf<String>()
 
         fun flushParagraph() {
             if (paragraph.isNotEmpty()) {
@@ -36,8 +39,21 @@ object NotesMarkdown {
             }
         }
 
+        fun flushTable() {
+            if (tableLines.isNotEmpty()) {
+                table(tableLines)?.let { blocks += it }
+                tableLines.clear()
+            }
+        }
+
         for (raw in markdown.replace("\r\n", "\n").split('\n')) {
             val line = raw.trim()
+            if (line.startsWith("|")) {
+                flushParagraph()
+                tableLines += line
+                continue
+            }
+            flushTable()
             if (line.isEmpty() || ruleRegex.matches(line)) {
                 flushParagraph()
                 continue
@@ -69,8 +85,24 @@ object NotesMarkdown {
             }
             paragraph += if (line.startsWith(">")) line.removePrefix(">").trim() else line
         }
+        flushTable()
         flushParagraph()
         return blocks
+    }
+
+    private val tableSeparatorRegex = Regex("^\\|?\\s*:?-{2,}:?\\s*(\\|\\s*:?-{2,}:?\\s*)*\\|?$")
+    private val cellSplitRegex = Regex("(?<!\\\\)\\|")
+
+    /** Header + rows of consecutive `| a | b |` lines; the `|---|` line is skipped. */
+    private fun table(lines: List<String>): NoteBlock.Table? {
+        val cells = lines.filterNot { tableSeparatorRegex.matches(it) }.map { line ->
+            line.removePrefix("|").let { if (it.endsWith("|") && !it.endsWith("\\|")) it.dropLast(1) else it }
+                .split(cellSplitRegex)
+                .map { it.replace("\\|", "|").trim() }
+        }
+        val header = cells.firstOrNull() ?: return null
+        val rows = cells.drop(1).map { row -> List(header.size) { row.getOrElse(it) { "" } } }
+        return NoteBlock.Table(header, rows)
     }
 
     /** Splits `**bold**` runs; an unmatched `**` is kept as literal text. */
@@ -96,6 +128,10 @@ object NotesMarkdown {
                 is NoteBlock.Paragraph -> plain(block.text)
                 is NoteBlock.Bullet -> "${block.marker} ${plain(block.text)}"
                 is NoteBlock.Task -> (if (block.checked) "☒ " else "☐ ") + plain(block.text)
+                is NoteBlock.Table -> block.rows.joinToString("\n") { row ->
+                    "• " + block.header.zip(row).filter { it.second.isNotBlank() }
+                        .joinToString(", ") { (h, v) -> "${plain(h)} : ${plain(v)}" }
+                }
             }
             if (previous != null) {
                 val tight = previous is NoteBlock.Heading || (isListItem(block) && isListItem(previous))

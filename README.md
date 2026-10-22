@@ -69,7 +69,25 @@ L'état de la synthèse est visible sur chaque élément : **en attente de rése
 | Réunion générale | Synthèse, points clés, décisions, actions à mener |
 | RDV commercial | Synthèse du rendez-vous, contexte du client, … *(sections à valider)* |
 | Réunion interne | Synthèse, points abordés, décisions, actions, points ouverts |
+| Métré | Tableau des locaux dictés (fréquence, bâtiment, étage, type de local, revêtement, prestations, surface), **exportable en CSV** pour l'outil de calcul Clinitex ; remarques |
 | Note vocale | Note, À faire *(réservé à l'onglet Vocaux)* |
+
+### Métré
+
+Le commercial dicte seul les locaux d'un site : type de local (bureau,
+sanitaires, couloir, salle de réunion, réfectoire…), revêtement de sol
+(carrelage, moquette, thermoplastique, parquet bois, ciment…), surface et
+fréquence de passage, et si besoin bâtiment, étage et prestations. Pas de
+séparation des intervenants. Claude range chaque local sur une ligne d'un
+tableau ; ce qui n'est pas dicté reste vide.
+
+Dans le détail de la réunion, **« Exporter le CSV »** produit le fichier à
+importer dans l'outil de calcul Clinitex (partage Android : Outlook, Teams,
+Drive…) :
+
+- colonnes, dans cet ordre : `Fréquence;Batiment;Etage;Type de Local;Revêtement;Prestations;Surface` ;
+- format Excel français : séparateur `;`, virgule décimale, UTF-8 avec BOM ;
+- surface en nombre seul (m²), une ligne par local (« trois bureaux de 12 m² » = trois lignes).
 
 ## Comment ça marche (principe)
 
@@ -83,7 +101,7 @@ L'état de la synthèse est visible sur chaque élément : **en attente de rése
                                    │ dès que le réseau est là (WorkManager)
                                    ▼
                     ┌──────────────────────────────┐        ┌──────────────┐
-                    │ webhook n8n Clinitex         │ ─────► │ Claude Haiku │
+                    │ webhook n8n Clinitex         │ ─────► │ Claude Sonnet│
                     │ (vérifie le jeton d'appareil)│ ◄───── │ (API)        │
                     └──────────────────────────────┘        └──────────────┘
                                    │ { title, notes }
@@ -224,6 +242,7 @@ clindy/
 | 5 | Consentement avant enregistrement, suppression auto des audios, signature release, package `fr.clinitex.transcription` | ✅ (hébergement des modèles Parakeet : à décider) |
 | 6 | Dictionnaire commun Clinitex (n8n), reprise automatique des synthèses + « Forcer la reconnexion », audio conservé 48 h | ✅ |
 | 7 | Variante Voxtral (transcription en ligne par tranches de 10 min), dictionnaire plus strict sur les mots courts | ✅ (calibrage du raccord sur de vrais RDV à poursuivre) |
+| 8 | Type de réunion **Métré** avec export CSV pour l'outil de calcul, synthèse par **Claude Sonnet** | ✅ (à publier dans une prochaine version) |
 
 > ℹ️ **Version bêta** : package `fr.clinitex.transcription`, release signée
 > avec la clé Clinitex. Distribution interne uniquement.
