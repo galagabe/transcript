@@ -25,8 +25,8 @@ android {
         applicationId = "fr.clinitex.transcription"
         minSdk = 24
         targetSdk = 36
-        versionCode = 7
-        versionName = "1.3.0-beta"
+        versionCode = 8
+        versionName = "1.4.0-beta"
         // Instrumented tests (MigrationTest, DiarizationCalibrationTest) run with `adb shell am instrument`.
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "CLINITEX_SUMMARY_URL", "\"${clinitexProp("clinitex.summaryUrl")}\"")
