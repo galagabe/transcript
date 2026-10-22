@@ -69,25 +69,39 @@ L'état de la synthèse est visible sur chaque élément : **en attente de rése
 | Réunion générale | Synthèse, points clés, décisions, actions à mener |
 | RDV commercial | Synthèse du rendez-vous, contexte du client, … *(sections à valider)* |
 | Réunion interne | Synthèse, points abordés, décisions, actions, points ouverts |
-| Métré | Tableau des locaux dictés (fréquence, bâtiment, étage, type de local, revêtement, prestations, surface), **exportable en CSV** pour l'outil de calcul Clinitex ; remarques |
-| Note vocale | Note, À faire *(réservé à l'onglet Vocaux)* |
+| Note vocale | Note, À faire *(onglet Vocaux)* |
+| Métré | Tableau des locaux et tableau des équipements sanitaires, **exportés en CSV** ; remarques *(onglet Vocaux)* |
 
-### Métré
+### Métré (onglet Vocaux)
 
-Le commercial dicte seul les locaux d'un site : type de local (bureau,
-sanitaires, couloir, salle de réunion, réfectoire…), revêtement de sol
-(carrelage, moquette, thermoplastique, parquet bois, ciment…), surface et
-fréquence de passage, et si besoin bâtiment, étage et prestations. Pas de
-séparation des intervenants. Claude range chaque local sur une ligne d'un
-tableau ; ce qui n'est pas dicté reste vide.
+Dans l'onglet **Vocaux**, choisir **Métré** au-dessus du bouton micro : le
+commercial dicte seul (pas de séparation des intervenants) les locaux d'un
+site. Claude range chaque local sur une ligne ; ce qui n'est pas dicté reste
+vide.
 
-Dans le détail de la réunion, **« Exporter le CSV »** produit le fichier à
-importer dans l'outil de calcul Clinitex (partage Android : Outlook, Teams,
-Drive…) :
+- **Type de Local** : uniquement Accueil, Circulation, Bureau, Salle de
+  réunion, Vestiaire, Sanitaire, Open space, Réfectoire ou Vitrerie (un
+  couloir = Circulation, des WC = Sanitaire). Ce qui suit la catégorie va
+  dans **Prestations** : « bureau accueil » = Bureau + accueil, « bureau
+  secrétaire » = Bureau + secrétaire. Un local hors catégories garde son nom.
+- **Fréquence** en code de l'outil de calcul : Q1 à Q5 = 1 à 5 passages par
+  semaine (tous les jours = Q5), MENS = 1 fois par mois, TRIM = 1 fois par
+  trimestre ; toute autre fréquence reste telle que dictée.
+- **Équipements sanitaires** (distributeurs d'essuie-mains, de savon, de
+  papier toilette, désodorisants…) : à part, dans un second tableau par local
+  et étage, pour le prestataire qui approvisionne et équipe le site.
 
-- colonnes, dans cet ordre : `Fréquence;Batiment;Etage;Type de Local;Revêtement;Prestations;Surface` ;
-- format Excel français : séparateur `;`, virgule décimale, UTF-8 avec BOM ;
-- surface en nombre seul (m²), une ligne par local (« trois bureaux de 12 m² » = trois lignes).
+Dans le détail du vocal, **« Exporter les CSV »** envoie les deux fichiers dans
+le même partage Android (Outlook, Teams, Drive…) :
+
+| Fichier | Colonnes |
+|---|---|
+| `Metre - <titre> - AAAA-MM-JJ.csv` (outil de calcul) | `Fréquence;Batiment;Etage;Type de Local;Revêtement;Prestations;Surface` |
+| `Equipements sanitaires - <titre> - AAAA-MM-JJ.csv` (prestataire) | `Batiment;Etage;Type de Local;Équipement;Quantité` |
+
+Format Excel français : séparateur `;`, virgule décimale, UTF-8 avec BOM ;
+surface et quantité en nombre seul ; une ligne par local (« trois bureaux de
+12 m² » = trois lignes).
 
 ## Comment ça marche (principe)
 
@@ -243,6 +257,7 @@ clindy/
 | 6 | Dictionnaire commun Clinitex (n8n), reprise automatique des synthèses + « Forcer la reconnexion », audio conservé 48 h | ✅ |
 | 7 | Variante Voxtral (transcription en ligne par tranches de 10 min), dictionnaire plus strict sur les mots courts | ✅ (calibrage du raccord sur de vrais RDV à poursuivre) |
 | 8 | Type de réunion **Métré** avec export CSV pour l'outil de calcul, synthèse par **Claude Sonnet** | ✅ (1.3.0-beta ; import du CSV dans l'outil de calcul à valider) |
+| 9 | Métré dans l'onglet Vocaux, fréquences en codes (Q1…Q5, MENS, TRIM), types de local de l'outil de calcul, fichier des équipements sanitaires | ✅ (à publier) |
 
 > ℹ️ **Version bêta** : package `fr.clinitex.transcription`, release signée
 > avec la clé Clinitex. Distribution interne uniquement.

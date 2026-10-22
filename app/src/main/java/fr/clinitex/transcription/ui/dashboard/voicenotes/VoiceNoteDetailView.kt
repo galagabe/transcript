@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import fr.clinitex.transcription.data.SharedStore
 import fr.clinitex.transcription.data.entity.RecordingSession
+import fr.clinitex.transcription.meetings.MeetingTemplate
 import fr.clinitex.transcription.summaries.SummaryRunner
 import fr.clinitex.transcription.summaries.SummaryWorker
 import fr.clinitex.transcription.theme.ClinitexPalette
@@ -43,6 +44,7 @@ import fr.clinitex.transcription.ui.components.SegmentedPills
 import fr.clinitex.transcription.ui.dashboard.DisplayFormat
 import fr.clinitex.transcription.ui.dashboard.meetings.MeetingAudioPlayer
 import fr.clinitex.transcription.ui.dashboard.meetings.SummarySection
+import fr.clinitex.transcription.ui.notes.MetreExport
 import fr.clinitex.transcription.ui.notes.NotesMarkdown
 import fr.clinitex.transcription.ui.notes.TranscriptView
 import kotlinx.coroutines.launch
@@ -75,11 +77,14 @@ fun VoiceNoteDetailView(
     val audioFile = remember(note.audioFileName) {
         note.audioFileName?.let { File(context.filesDir, "meetings/$it") }
     }
+    val isMetre = MeetingTemplate.fromId(note.templateId) == MeetingTemplate.METRE
     val dateLine = listOfNotNull(
         DisplayFormat.fullDateTime(note.startedAt ?: note.createdAt),
         DisplayFormat.minutesSeconds(note.startedAt, note.endedAt),
-        "Vocal",
+        if (isMetre) "Métré" else "Vocal",
     ).joinToString(" · ")
+    // Métré: premises (costing tool) and sanitary equipment (supplier) as CSV files.
+    val canExportMetre = remember(note.summaryText, isMetre) { isMetre && MetreExport.canExport(note.summaryText) }
 
     val cleaned = note.summaryState == SummaryRunner.STATE_COMPLETED && note.summaryText.isNotBlank()
     val canRetry = note.phase == "completed" &&
@@ -186,7 +191,16 @@ fun VoiceNoteDetailView(
                 enabled = cleaned || !transcriptText.isNullOrBlank(),
                 modifier = Modifier.weight(1f),
             )
-            PillButton(
+            if (isMetre) {
+                PillButton(
+                    "Exporter les CSV",
+                    onClick = { MetreExport.share(context, note.title, note.startedAt ?: note.createdAt, note.summaryText) },
+                    icon = Icons.Default.IosShare,
+                    variant = PillVariant.OUTLINE,
+                    enabled = canExportMetre,
+                    modifier = Modifier.weight(1f),
+                )
+            } else PillButton(
                 "Partager",
                 onClick = { shareNote() },
                 icon = Icons.Default.IosShare,

@@ -30,12 +30,14 @@ class MetreWebhookTest {
         assumeTrue(client.isConfigured())
 
         val transcript = """
-            Bon alors métré pour le site de la zone d'activité. Bâtiment A, rez-de-chaussée. Trois bureaux de 12 mètres carrés,
+            Bon alors métré pour le site de la zone d'activité. Bâtiment A, rez-de-chaussée. Un bureau accueil de 15 mètres carrés,
+            carrelage, tous les jours. Un bureau secrétaire, 10 mètres carrés, moquette, trois fois par semaine. Trois bureaux de 12 mètres carrés,
             moquette, passage deux fois par semaine. Ensuite les sanitaires, euh, 8 mètres carrés, carrelage, tous les jours,
-            cinq fois par semaine, avec réapprovisionnement des consommables. Le couloir, thermoplastique, 35 mètres carrés,
-            deux fois par semaine aussi. Premier étage : une salle de réunion de 40 mètres carrés en parquet bois, une fois par
-            semaine. Le réfectoire, 25 mètres carrés, carrelage, cinq fois par semaine. Ah et le local technique au sous-sol,
-            sol en ciment, on sait pas la surface. Accès par badge, le client veut un passage avant 8 heures.
+            avec réapprovisionnement des consommables. Dans les sanitaires il faudra deux distributeurs de savon, un distributeur
+            d'essuie-mains et un distributeur de papier toilette. Le couloir, thermoplastique, 35 mètres carrés, trois fois par
+            semaine. Premier étage : une salle de réunion de 40 mètres carrés en parquet bois, une fois par semaine. Les sanitaires
+            du premier, 6 mètres carrés, carrelage, tous les jours, avec un désodorisant. Les vitres du hall, une fois par trimestre.
+            Le local archives, 20 mètres carrés, ciment, une fois par mois. Accès par badge, le client veut un passage avant 8 heures.
         """.trimIndent().replace("\n", " ")
 
         val response = client.summarize(
@@ -50,7 +52,9 @@ class MetreWebhookTest {
             )
         )
         val rows = MetreCsv.rows(response.notes)
-        val report = "Titre : ${response.title}\n\n${response.notes}\n\n--- CSV ---\n${MetreCsv.toCsv(rows).removePrefix("﻿")}"
+        val equipment = MetreCsv.equipmentRows(response.notes)
+        val report = "Titre : ${response.title}\n\n${response.notes}\n\n--- CSV métré ---\n${MetreCsv.toCsv(rows).removePrefix("﻿")}" +
+            "\n--- CSV équipements ---\n${MetreCsv.toCsv(equipment, MetreCsv.EQUIPMENT_COLUMNS).removePrefix("﻿")}"
         System.getenv("CLINDY_METRE_OUT")?.let { File(it).writeText(report) }
         println(report)
         assertTrue("no Métré table in the notes", rows.isNotEmpty())

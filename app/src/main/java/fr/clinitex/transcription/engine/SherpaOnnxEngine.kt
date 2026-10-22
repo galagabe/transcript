@@ -83,6 +83,15 @@ object SherpaRecognizerHolder {
             loadedModelId = null
         }
 
+        val created = create(models)
+        recognizer = created
+        loadedModelId = models.model.id
+        return created
+    }
+
+    /** Builds a recognizer for [models] without caching it (also used by the
+     * on-device model comparison test, which must not change the selection). */
+    fun create(models: ModelManager): OfflineRecognizer {
         check(models.isDownloaded()) { "Le modèle ${models.model.shortName} n’est pas téléchargé." }
 
         val modelConfig = when (models.model.kind) {
@@ -119,8 +128,6 @@ object SherpaRecognizerHolder {
         val start = System.currentTimeMillis()
         val created = OfflineRecognizer(assetManager = null, config = config)
         Log.i(TAG, "Model loaded in ${System.currentTimeMillis() - start} ms")
-        recognizer = created
-        loadedModelId = models.model.id
         return created
     }
 }

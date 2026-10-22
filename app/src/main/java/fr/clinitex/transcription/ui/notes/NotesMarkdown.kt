@@ -101,7 +101,9 @@ object NotesMarkdown {
                 .map { it.replace("\\|", "|").trim() }
         }
         val header = cells.firstOrNull() ?: return null
-        val rows = cells.drop(1).map { row -> List(header.size) { row.getOrElse(it) { "" } } }
+        val rows = cells.drop(1)
+            .map { row -> List(header.size) { row.getOrElse(it) { "" } } }
+            .filter { row -> row.any { it.isNotBlank() } }
         return NoteBlock.Table(header, rows)
     }
 

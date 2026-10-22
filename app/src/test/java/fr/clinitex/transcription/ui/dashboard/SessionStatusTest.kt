@@ -55,13 +55,21 @@ class SessionStatusTest {
     fun voiceNoteTemplateIsHiddenFromMeetingPickers() {
         assertFalse(MeetingTemplate.NOTE_VOCALE in MeetingTemplate.meetingTemplates)
         assertEquals(
-            listOf(MeetingTemplate.GENERAL, MeetingTemplate.RDV_COMMERCIAL, MeetingTemplate.METRE, MeetingTemplate.REUNION_INTERNE),
+            listOf(MeetingTemplate.GENERAL, MeetingTemplate.RDV_COMMERCIAL, MeetingTemplate.REUNION_INTERNE),
             MeetingTemplate.meetingTemplates,
         )
         assertEquals(MeetingTemplate.NOTE_VOCALE, MeetingTemplate.fromId("noteVocale"))
         assertEquals(MeetingTemplate.GENERAL, MeetingTemplate.meetingFromId("noteVocale"))
         assertEquals(MeetingTemplate.RDV_COMMERCIAL, MeetingTemplate.meetingFromId("rdvCommercial"))
         assertEquals(MeetingTemplate.GENERAL, MeetingTemplate.meetingFromId("legacyMuesli"))
+    }
+
+    @Test
+    fun metreIsAVoiceNoteNotAMeeting() {
+        // Moved to the Vocaux tab on 22/10/2026: the salesperson dictates alone.
+        assertEquals(listOf(MeetingTemplate.NOTE_VOCALE, MeetingTemplate.METRE), MeetingTemplate.voiceNoteTemplates)
+        assertEquals(MeetingTemplate.METRE, MeetingTemplate.fromId("metre"))
+        assertEquals(MeetingTemplate.GENERAL, MeetingTemplate.meetingFromId("metre"))
     }
 
     @Test

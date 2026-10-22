@@ -42,6 +42,7 @@ import fr.clinitex.transcription.ui.components.NoticeBox
 import fr.clinitex.transcription.ui.components.NoticeTone
 import fr.clinitex.transcription.ui.components.ScreenBackground
 import fr.clinitex.transcription.ui.components.ScreenHeader
+import fr.clinitex.transcription.ui.components.SegmentedPills
 import fr.clinitex.transcription.ui.components.brandUpper
 import fr.clinitex.transcription.ui.dashboard.DisplayFormat
 import fr.clinitex.transcription.ui.dashboard.SummaryRecoveryBanner
@@ -66,6 +67,10 @@ fun VoiceNotesTab(
     val context = LocalContext.current
     var notes by remember { mutableStateOf(emptyList<RecordingSession>()) }
     var askConsent by remember { mutableStateOf(false) }
+    // Note vocale (default) or Métré, chosen before dictating.
+    val templates = MeetingTemplate.voiceNoteTemplates
+    var templateIndex by remember { mutableIntStateOf(0) }
+    val template = templates[templateIndex]
     // Voxtral variant: no on-device model needed.
     val modelReady = remember { store.usesVoxtral || ModelManager(context.applicationContext).isDownloaded() }
 
@@ -83,12 +88,13 @@ fun VoiceNotesTab(
         if (Build.VERSION.SDK_INT >= 33) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
-        val title = "Vocal du ${SimpleDateFormat("d MMM 'à' HH:mm", Locale.FRENCH).format(Date())}"
+        val prefix = if (template == MeetingTemplate.METRE) "Métré" else "Vocal"
+        val title = "$prefix du ${SimpleDateFormat("d MMM 'à' HH:mm", Locale.FRENCH).format(Date())}"
         MeetingRecordingController.start(
             context,
             UUID.randomUUID().toString(),
             title,
-            MeetingTemplate.NOTE_VOCALE.id,
+            template.id,
             RecordingSession.KIND_VOICE_NOTE,
             consentAt,
         )
@@ -120,6 +126,19 @@ fun VoiceNotesTab(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
+                    SegmentedPills(
+                        options = templates.map { it.label },
+                        selectedIndex = templateIndex,
+                        onSelect = { templateIndex = it },
+                    )
+                    if (template == MeetingTemplate.METRE) {
+                        Text(
+                            "Dictez chaque local : type, étage, revêtement, surface, fréquence de passage et équipements sanitaires. Deux fichiers CSV à exporter : le métré et les équipements.",
+                            style = ClinitexType.body(12.sp, FontWeight.Normal, 17.sp),
+                            color = ClinitexPalette.InkSoft,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
                     DictateButton(enabled = modelReady, onClick = { askConsent = true })
                     Text(
                         "Appuyez pour dicter".brandUpper(),
